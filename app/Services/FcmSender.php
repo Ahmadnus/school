@@ -93,10 +93,30 @@ class FcmSender
 
     public static function isConfigured(): bool
     {
+        return self::rawCredentials() !== null
+            && ! empty(config('services.fcm.project_id'));
+    }
+
+    /**
+     * Key material, from the env var first and the file second.
+     *
+     * Hosts that build from Git have nowhere to put a credential file, so the
+     * whole JSON arrives as one environment variable there; locally the file
+     * keeps working unchanged.
+     */
+    private static function rawCredentials(): ?string
+    {
+        $json = config('services.fcm.credentials_json');
+
+        if (is_string($json) && trim($json) !== '') {
+            return $json;
+        }
+
         $path = config('services.fcm.credentials');
 
         return is_string($path) && $path !== '' && is_file($path)
-            && ! empty(config('services.fcm.project_id'));
+            ? (string) file_get_contents($path)
+            : null;
     }
 
     /**
@@ -106,10 +126,7 @@ class FcmSender
     private static function accessToken(): ?string
     {
         return Cache::remember(self::TOKEN_CACHE_KEY, now()->addMinutes(50), function (): ?string {
-            $credentials = json_decode(
-                (string) file_get_contents((string) config('services.fcm.credentials')),
-                true,
-            );
+            $credentials = json_decode((string) self::rawCredentials(), true);
 
             if (! is_array($credentials) || ! isset($credentials['client_email'], $credentials['private_key'])) {
                 Log::warning('FCM credentials file is not a service account key.');

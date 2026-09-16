@@ -35,6 +35,9 @@ return [
     'fcm' => [
         'project_id' => env('FCM_PROJECT_ID'),
         'credentials' => env('FCM_CREDENTIALS', storage_path('app/firebase/service-account.json')),
+        // محتوى مفتاح الخدمة نصّاً بدل ملف؛ منصّات النشر تبني من Git ولا مكان
+        // فيها لملف اعتماد — ورفعه إلى المستودع يكشف مفتاحاً خاصّاً كامل الصلاحية.
+        'credentials_json' => env('FCM_CREDENTIALS_JSON'),
     ],
 
     'slack' => [
