@@ -11,6 +11,9 @@
     "require": {
         "php": "^8.4",
         "ext-zip": "*",
+        "ext-pcntl": "*",
+        "ext-posix": "*",
+        "ext-sockets": "*",
         "laravel/framework": "^13.17",
         "laravel/reverb": "^1.11",
         "laravel/sanctum": "^4.0",
