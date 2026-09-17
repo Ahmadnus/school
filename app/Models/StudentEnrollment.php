@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class StudentEnrollment extends Model
 {
@@ -55,6 +56,28 @@ class StudentEnrollment extends Model
     public function academicYear(): BelongsTo
     {
         return $this->belongsTo(AcademicYear::class);
+    }
+
+    /**
+     * المواد المسجّلة — **فارغة تعني الخطة الكاملة** لا «بلا مواد».
+     *
+     * الغالبية يدرسون البرنامج كلّه، فتسجيل كل مادة لكل طالب يضخّم الجدول
+     * بلا معلومة إضافية. استعمل [studiesSubjects] للتمييز.
+     */
+    public function subjects(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Subject::class,
+            'enrollment_subjects',
+            'student_enrollment_id',
+            'subject_id',
+        )->withTimestamps();
+    }
+
+    /** هل هذا تسجيل مواد مختارة؟ */
+    public function studiesSelectedSubjects(): bool
+    {
+        return $this->subjects()->exists();
     }
 
     public function scopeOfYear(Builder $query, int $academicYearId): Builder

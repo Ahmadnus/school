@@ -20,6 +20,8 @@ class StudentEnrollmentResource extends JsonResource
             'transport_subscribed' => $this->transport_subscribed,
             'status' => $this->status->value,
             'status_label' => $this->status->label(),
+            // مواد مختارة — غيابها يعني الخطة الكاملة، وهي الحالة الغالبة.
+            'subjects' => SubjectResource::collection($this->whenLoaded('subjects')),
             'section' => new SectionResource($this->whenLoaded('section')),
             'academic_year' => new AcademicYearResource($this->whenLoaded('academicYear')),
             'student' => new StudentResource($this->whenLoaded('student')),

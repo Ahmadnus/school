@@ -6,8 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Student\StoreStudentRequest;
 use App\Http\Requests\Student\UpdateStudentRequest;
 use App\Http\Resources\StudentResource;
+use App\Models\FeeType;
 use App\Models\Section;
+use App\Support\Money;
+use App\Services\FeePlanBuilder;
 use App\Models\Student;
+use App\Models\StudentEnrollment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -74,13 +78,15 @@ class StudentController extends Controller
             if ($sectionId = $data['section_id'] ?? null) {
                 $section = Section::findOrFail($sectionId);
 
-                $student->enrollments()->create([
+                $enrollment = $student->enrollments()->create([
                     'section_id' => $section->id,
                     'academic_year_id' => $section->academic_year_id,
                     'scope' => $data['scope'],
                     'enrolled_at' => $data['enrolled_at'],
                     'transport_subscribed' => $request->boolean('transport_subscribed'),
                 ]);
+
+                self::attachPlan($request, $data, $student, $section, $enrollment);
             }
 
             return $student;
@@ -92,14 +98,84 @@ class StudentController extends Controller
         ], 201);
     }
 
+    /**
+     * خطة الرسوم لحظة التسجيل.
+     *
+     * إنشاؤها هنا لا في شاشة ثانية مقصود: الطالب المسجّل بلا خطة لا يظهر
+     * في أي تقرير مالي، فيُنسى حتى يحلّ موعد التحصيل. وكلّه داخل معاملة
+     * `store` نفسها، فإمّا طالب بخطته أو لا طالب — لا نصف تسجيل.
+     *
+     * وضعان:
+     *  - `full`     — المبلغ والأقساط من نوع الرسوم الافتراضي للصف.
+     *  - `subjects` — مواد مختارة تُحفظ، والمبلغ يُكتب يدويّاً.
+     */
+    private static function attachPlan(
+        Request $request,
+        $data,
+        Student $student,
+        Section $section,
+        StudentEnrollment $enrollment,
+    ): void {
+        $mode = $data['plan_mode'] ?? 'none';
+
+        if ($mode === 'none') {
+            return;
+        }
+
+        if ($mode === 'subjects') {
+            $enrollment->subjects()->sync($data['subject_ids'] ?? []);
+        }
+
+        // في الخطة الكاملة يحمل النوع جدول أقساطه معه؛ في المواد المختارة
+        // لا نوع لها والمبلغ يأتي من المستخدم.
+        $type = $mode === 'full'
+            ? FeeType::query()
+                ->with('installments')
+                ->ofSchool($student->school_id)
+                ->where('grade_id', $section->grade_id)
+                ->where('is_default', true)
+                ->first()
+            : null;
+
+        $total = isset($data['plan_total_amount'])
+            ? Money::fromDecimal($data['plan_total_amount'])
+            : ($type?->totalAmount() ?? Money::zero());
+
+        // مبلغ صفري يعني أن المدرسة لم تضبط نوعاً افتراضيّاً للصف بعد؛
+        // خطة بصفر ليست خطة، وإنشاؤها يعني رقماً كاذباً في التقارير.
+        if ($total->isZero()) {
+            return;
+        }
+
+        $discount = Money::fromDecimal($data['plan_discount_amount'] ?? 0);
+
+        if ($discount->greaterThan($total)) {
+            $discount = Money::zero();
+        }
+
+        FeePlanBuilder::create(
+            studentId: $student->id,
+            academicYearId: $section->academic_year_id,
+            type: $type,
+            totalAmount: $total,
+            discountAmount: $discount,
+            installments: null,
+            discountReason: $data['plan_discount_reason'] ?? null,
+            notes: null,
+            paymentReminders: true,
+        );
+    }
+
     public function show(Student $student): StudentResource
     {
         $this->authorize('view', $student);
 
         return new StudentResource($student->load([
             'currentEnrollment.section.grade',
+            'currentEnrollment.subjects',
             'enrollments.section.grade',
             'enrollments.academicYear',
+            'enrollments.subjects',
             'guardians',
         ]));
     }

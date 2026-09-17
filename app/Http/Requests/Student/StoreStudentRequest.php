@@ -47,6 +47,30 @@ class StoreStudentRequest extends FormRequest
             'scope' => ['nullable', 'required_with:section_id', Rule::enum(EnrollmentScope::class)],
             'enrolled_at' => ['nullable', 'required_with:section_id', 'date'],
             'transport_subscribed' => ['nullable', 'boolean'],
+
+            // خطة الرسوم عند التسجيل. غيابها = لا تُنشَأ خطة، فيبقى السلوك
+            // القديم كما هو لمن ينشئ الطالب أوّلاً ويعيّن الرسوم لاحقاً.
+            'plan_mode' => ['nullable', 'required_with:section_id', 'in:none,full,subjects'],
+
+            // مواد مختارة: مطلوبة في وضع subjects وحده.
+            'subject_ids' => ['nullable', 'array', 'required_if:plan_mode,subjects', 'min:1'],
+            'subject_ids.*' => [Rule::exists('subjects', 'id')],
+
+            // المبلغ يُكتب يدويّاً مع المواد المختارة؛ الخطة الكاملة تأخذه
+            // من نوع الرسوم الافتراضي للصف، وتمريره هنا يجعله يسود عليه.
+            'plan_total_amount' => [
+                'nullable',
+                'required_if:plan_mode,subjects',
+                'numeric',
+                'min:0',
+            ],
+            'plan_discount_amount' => ['nullable', 'numeric', 'min:0'],
+            'plan_discount_reason' => [
+                'nullable',
+                'string',
+                'max:300',
+                'required_with:plan_discount_amount',
+            ],
         ];
     }
 }
