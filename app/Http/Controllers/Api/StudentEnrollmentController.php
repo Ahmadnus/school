@@ -9,6 +9,7 @@ use App\Http\Resources\StudentEnrollmentResource;
 use App\Models\Section;
 use App\Models\Student;
 use App\Models\StudentEnrollment;
+use App\Services\EnrollmentFeePlanner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -45,6 +46,9 @@ class StudentEnrollmentController extends Controller
         }
 
         $enrollment = $student->enrollments()->create($data);
+
+        // الإسناد إلى صف يعني قسط ذلك الصف — بلا شاشة ثانية.
+        EnrollmentFeePlanner::ensureFor($enrollment);
 
         return response()->json([
             'message' => __('messages.enrollment.created'),

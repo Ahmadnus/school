@@ -9,6 +9,7 @@ use App\Http\Requests\Student\BulkEnrollRequest;
 use App\Models\Section;
 use App\Models\Student;
 use App\Models\StudentEnrollment;
+use App\Services\EnrollmentFeePlanner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -46,7 +47,7 @@ class BulkEnrollmentController extends Controller
 
         DB::transaction(function () use ($plan, $section, $data) {
             foreach ($plan['to_enroll'] as $row) {
-                StudentEnrollment::create([
+                $enrollment = StudentEnrollment::create([
                     'student_id' => $row['id'],
                     'section_id' => $section->id,
                     'academic_year_id' => $section->academic_year_id,
@@ -55,6 +56,8 @@ class BulkEnrollmentController extends Controller
                     'transport_subscribed' => (bool) ($data['transport_subscribed'] ?? false),
                     'status' => EnrollmentStatus::Active,
                 ]);
+
+                EnrollmentFeePlanner::ensureFor($enrollment);
             }
         });
 

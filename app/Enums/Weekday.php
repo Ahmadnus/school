@@ -17,9 +17,21 @@ enum Weekday: int
         return __('weekdays.'.$this->name);
     }
 
-    /** The school week shown on the schedule day strip. */
+    /**
+     * أيّام الدوام في شريط الجدول.
+     *
+     * السبت يوم دوام في معاهد كثيرة، والجمعة وحدها عطلة مطّردة.
+     * الترتيب من السبت لأنّه أوّل أيام الأسبوع الدراسي هنا.
+     */
     public static function schoolWeek(): array
     {
-        return [self::Sunday, self::Monday, self::Tuesday, self::Wednesday, self::Thursday];
+        return [
+            self::Saturday,
+            self::Sunday,
+            self::Monday,
+            self::Tuesday,
+            self::Wednesday,
+            self::Thursday,
+        ];
     }
 }

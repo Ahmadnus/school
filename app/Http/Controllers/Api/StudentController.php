@@ -9,6 +9,7 @@ use App\Http\Resources\StudentResource;
 use App\Models\FeeType;
 use App\Models\Section;
 use App\Support\Money;
+use App\Services\EnrollmentFeePlanner;
 use App\Services\FeePlanBuilder;
 use App\Models\Student;
 use App\Models\StudentEnrollment;
@@ -128,13 +129,9 @@ class StudentController extends Controller
 
         // في الخطة الكاملة يحمل النوع جدول أقساطه معه؛ في المواد المختارة
         // لا نوع لها والمبلغ يأتي من المستخدم.
+        // منبع واحد للنوع الافتراضي تشترك فيه مسارات التسجيل كلّها.
         $type = $mode === 'full'
-            ? FeeType::query()
-                ->with('installments')
-                ->ofSchool($student->school_id)
-                ->where('grade_id', $section->grade_id)
-                ->where('is_default', true)
-                ->first()
+            ? EnrollmentFeePlanner::defaultTypeFor($student->school_id, $section->grade_id)
             : null;
 
         $total = isset($data['plan_total_amount'])

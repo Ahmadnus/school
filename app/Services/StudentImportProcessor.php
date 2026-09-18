@@ -117,12 +117,14 @@ class StudentImportProcessor
                     'medical_notes' => $data['medical_notes'] ?? null,
                 ]);
 
-                $student->enrollments()->create([
+                $enrollment = $student->enrollments()->create([
                     'section_id' => $import->section_id,
                     'academic_year_id' => $import->academic_year_id,
                     'scope' => EnrollmentScope::FullYear,
                     'enrolled_at' => now()->toDateString(),
                 ]);
+
+                EnrollmentFeePlanner::ensureFor($enrollment);
 
                 self::linkGuardian($import, $student, $data);
 
