@@ -38,9 +38,15 @@ class FeeTypeController extends Controller
 
         $type = DB::transaction(function () use ($request) {
             $type = FeeType::create([
-                ...$request->safe()->except('installments'),
+                ...$request->safe()->except(['installments', 'total_amount']),
                 'school_id' => $request->user()->school_id,
+                // العقد مع التطبيق `total_amount` والعمود `total_minor`؛ تمرير الأول
+                // كما هو يجعل لارافيل يُسقطه **بصمت** (ليس في fillable)، فيُحفظ
+                // النوع بصفر مهما كتب المستخدم — ومنه ترث كل خطة صفراً.
+                'total_minor' => Money::fromDecimal($request->input('total_amount', 0)),
             ]);
+
+            $this->makeSoleDefault($type);
 
             $this->replaceInstallments($type, $request->input('installments', []));
 
@@ -51,6 +57,29 @@ class FeeTypeController extends Controller
             'message' => __('messages.fee_type.created'),
             'data' => new FeeTypeResource($type->load(['grade', 'subject', 'installments'])),
         ], 201);
+    }
+
+    /**
+     * النوع الافتراضي للصف **واحد لا أكثر**.
+     *
+     * منه ترث كل خطة تُنشَأ عند تسجيل طالب في هذا الصف؛ ووجود اثنين يعني أن
+     * الاختيار يقع على أيّهما وجدته الاستعلامة أوّلاً — فيدفع طالب سعر غير سعره
+     * ولا شيء في الواجهة يكشف ذلك.
+     *
+     * يُقيَّد بالصف: لكل صف افتراضيّه، والأنواع بلا صف مجموعة واحدة.
+     */
+    private function makeSoleDefault(FeeType $type): void
+    {
+        if (! $type->is_default) {
+            return;
+        }
+
+        FeeType::query()
+            ->where('school_id', $type->school_id)
+            ->where('grade_id', $type->grade_id)
+            ->whereKeyNot($type->getKey())
+            ->where('is_default', true)
+            ->update(['is_default' => false]);
     }
 
     public function show(FeeType $feeType): FeeTypeResource
@@ -69,7 +98,14 @@ class FeeTypeController extends Controller
         $this->authorize('update', $feeType);
 
         DB::transaction(function () use ($request, $feeType) {
-            $feeType->update($request->safe()->except('installments'));
+            $feeType->update([
+                ...$request->safe()->except(['installments', 'total_amount']),
+                ...($request->has('total_amount')
+                    ? ['total_minor' => Money::fromDecimal($request->input('total_amount', 0))]
+                    : []),
+            ]);
+
+            $this->makeSoleDefault($feeType);
 
             if ($request->has('installments')) {
                 $this->replaceInstallments($feeType, $request->input('installments', []));
