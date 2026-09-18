@@ -19,8 +19,19 @@ class ReportCardController extends Controller
     {
         $this->authorize('viewAny', ReportCard::class);
 
+        $user = $request->user();
+
         $cards = ReportCard::query()
-            ->ofSchool($request->user()->school_id)
+            ->ofSchool($user->school_id)
+            // وليّ الأمر يرى كشوف أبنائه وحدهم. بلا هذا الحصر كانت القائمة
+            // تردّ كشوف المدرسة كلّها — علامات أبناء الغير في هاتف كل أب.
+            ->when(
+                $user->role->isGuardian(),
+                fn ($q) => $q->whereHas(
+                    'student.guardians',
+                    fn ($g) => $g->where('guardians.user_id', $user->id),
+                ),
+            )
             ->when($request->filled('student_id'), fn ($q) => $q->where('student_id', $request->integer('student_id')))
             ->when($request->filled('term_id'), fn ($q) => $q->where('term_id', $request->integer('term_id')))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
