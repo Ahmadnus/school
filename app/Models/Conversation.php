@@ -85,14 +85,49 @@ class Conversation extends Model
     }
 
     /** Only threads the user takes part in. */
+    /**
+     * يرفق `unread_count` لهذا المستخدم في استعلام القائمة نفسه.
+     *
+     * عتبة القراءة تختلف لكل محادثة، فلا يكفي تجميع واحد — ومن هنا جاءت
+     * الجملة الفرعية المترابطة. بدونها كان كل صفّ يكلّف استعلام عدّ مستقلّاً.
+     *
+     * `COALESCE` يجعل من لم يقرأ قطّ يرى كل الرسائل غير مقروءة، وهو مدعوم
+     * في MySQL وSQLite معاً (النشر والاختبارات).
+     */
+    public function scopeWithUnreadCountFor(Builder $query, int $userId): Builder
+    {
+        return $query->withCount(['messages as unread_count' => fn (Builder $q) => $q
+            ->where('sender_id', '!=', $userId)
+            ->whereRaw(
+                'messages.sent_at > COALESCE((select last_read_at from conversation_participants'
+                .' where conversation_participants.conversation_id = messages.conversation_id'
+                ." and conversation_participants.user_id = ?), '1970-01-01 00:00:00')",
+                [$userId],
+            )]);
+    }
+
     public function scopeForUser(Builder $query, int $userId): Builder
     {
         return $query->whereHas('participantRecords', fn (Builder $q) => $q->where('user_id', $userId));
     }
 
+    /**
+     * عدد غير المقروء لهذا المستخدم.
+     *
+     * يقرأ المشارك من العلاقة **المحمّلة مسبقاً** متى وُجدت: القائمة تحمّل
+     * `participantRecords` لكل المحادثات باستعلام واحد، ثم كان هذا السطر يسأل
+     * عنها مرّة أخرى لكل محادثة — استعلامان لكل صفّ في قائمة تُفتح كل دقيقة.
+     */
     public function unreadCountFor(int $userId): int
     {
-        $participant = $this->participantRecords()->where('user_id', $userId)->first();
+        // محمّل مع القائمة؟ فلا داعي لسؤال قاعدة البيانات مرّة أخرى.
+        if ($this->unread_count !== null) {
+            return (int) $this->unread_count;
+        }
+
+        $participant = $this->relationLoaded('participantRecords')
+            ? $this->participantRecords->firstWhere('user_id', $userId)
+            : $this->participantRecords()->where('user_id', $userId)->first();
 
         return $this->messages()
             ->where('sender_id', '!=', $userId)

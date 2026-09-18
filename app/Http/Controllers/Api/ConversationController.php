@@ -51,6 +51,7 @@ class ConversationController extends Controller
                         ->orWhere('last_name', 'like', $term)));
             })
             ->with(['student', 'participantRecords', 'lastMessage'])
+            ->withUnreadCountFor($request->user()->id)
             ->orderByDesc('last_message_at')
             ->paginate($request->integer('per_page', 20))
             ->withQueryString();
