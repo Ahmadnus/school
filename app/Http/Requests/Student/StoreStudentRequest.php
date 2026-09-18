@@ -52,6 +52,13 @@ class StoreStudentRequest extends FormRequest
             // القديم كما هو لمن ينشئ الطالب أوّلاً ويعيّن الرسوم لاحقاً.
             'plan_mode' => ['nullable', 'required_with:section_id', 'in:none,full,subjects'],
 
+            // خطة بعينها بدل الاعتماد على وسم «الافتراضي»: المستخدم يفكّر بـ
+            // «قسط العلمي» لا بـ«النوع الموسوم افتراضيّاً للصف». غيابه يعني: خذ الافتراضي.
+            'plan_fee_type_id' => [
+                'nullable',
+                Rule::exists('fee_types', 'id')->where('school_id', $schoolId),
+            ],
+
             // مواد مختارة: مطلوبة في وضع subjects وحده.
             'subject_ids' => ['nullable', 'array', 'required_if:plan_mode,subjects', 'min:1'],
             'subject_ids.*' => [Rule::exists('subjects', 'id')],

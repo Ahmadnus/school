@@ -93,6 +93,28 @@ class StudentEnrollmentPlanTest extends TestCase
         $this->assertTrue($plan->total_minor->equals($this->defaultType->totalAmount()));
     }
 
+    public function test_an_explicitly_chosen_plan_beats_the_grade_default(): void
+    {
+        // المستخدم يفكّر بـ«قسط العلمي» لا بـ«النوع الموسوم افتراضيّاً»؛
+        // فإن اختار خطة بعينها فهي التي تُطبّق، ولو كان للصف افتراضي غيرها.
+        $other = FeeType::factory()->create([
+            'school_id' => $this->school->id,
+            'grade_id' => $this->grade->id,
+            'is_default' => false,
+            'total_minor' => '3333333',
+        ]);
+
+        $this->postJson('/api/students', $this->payload([
+            'plan_mode' => 'full',
+            'plan_fee_type_id' => $other->id,
+        ]))->assertCreated();
+
+        $plan = FeePlan::query()->firstOrFail();
+
+        $this->assertSame($other->id, $plan->fee_type_id);
+        $this->assertTrue($plan->total_minor->equals($other->totalAmount()));
+    }
+
     public function test_selected_subjects_are_saved_with_the_price_typed_by_hand(): void
     {
         $ids = [$this->subjects[0]->id, $this->subjects[1]->id];

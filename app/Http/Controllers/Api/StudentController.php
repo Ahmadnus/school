@@ -130,9 +130,20 @@ class StudentController extends Controller
         // في الخطة الكاملة يحمل النوع جدول أقساطه معه؛ في المواد المختارة
         // لا نوع لها والمبلغ يأتي من المستخدم.
         // منبع واحد للنوع الافتراضي تشترك فيه مسارات التسجيل كلّها.
-        $type = $mode === 'full'
-            ? EnrollmentFeePlanner::defaultTypeFor($student->school_id, $section->grade_id)
-            : null;
+        // النوع المختار صراحةً يسود؛ وإلاّ فالافتراضي للصف.
+        $type = null;
+
+        if ($mode === 'full') {
+            $chosen = $data['plan_fee_type_id'] ?? null;
+
+            $type = $chosen
+                ? FeeType::query()
+                    ->with('installments')
+                    ->ofSchool($student->school_id)
+                    ->whereKey($chosen)
+                    ->first()
+                : EnrollmentFeePlanner::defaultTypeFor($student->school_id, $section->grade_id);
+        }
 
         $total = isset($data['plan_total_amount'])
             ? Money::fromDecimal($data['plan_total_amount'])
