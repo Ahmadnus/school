@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\RubricController;
 use App\Http\Controllers\Api\ScheduleSlotController;
 use App\Http\Controllers\Api\SchoolController;
 use App\Http\Controllers\Api\SectionController;
+use App\Http\Controllers\Api\SectionScheduleController;
 use App\Http\Controllers\Api\StudentController;
 use App\Http\Controllers\Api\StudentEnrollmentController;
 use App\Http\Controllers\Api\StudentGuardianController;
@@ -89,6 +90,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('grades', GradeController::class);
 
     Route::get('sections/{section}/students', [SectionController::class, 'students']);
+
+    // بناء الجدول: دوام اليوم مرّة، ثم المواد على الحصص.
+    Route::get('sections/{section}/hours', [SectionScheduleController::class, 'hours']);
+    Route::put('sections/{section}/hours', [SectionScheduleController::class, 'setHours']);
+    Route::delete('sections/{section}/hours', [SectionScheduleController::class, 'clearHours']);
+    Route::get('sections/{section}/schedule', [SectionScheduleController::class, 'grid']);
+    Route::put('sections/{section}/schedule', [SectionScheduleController::class, 'setGrid']);
+    Route::get('sections/{section}/schedule-subjects', [SectionScheduleController::class, 'subjects']);
     Route::apiResource('sections', SectionController::class);
 
     // --- Students and enrollments (§2.2) ---

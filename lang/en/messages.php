@@ -273,4 +273,10 @@ return [
         'added' => 'Supervision scope added.',
         'removed' => 'Supervision scope removed.',
     ],
+    'schedule' => [
+        'hours_saved' => 'School hours saved.',
+        'hours_cleared' => 'That day is now off for this section.',
+        'no_hours' => 'Set the day hours before assigning subjects.',
+        'saved' => 'Schedule saved.',
+    ],
 ];
