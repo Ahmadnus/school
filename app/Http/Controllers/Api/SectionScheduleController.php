@@ -202,6 +202,52 @@ class SectionScheduleController extends Controller
         ]);
     }
 
+    /**
+     * يملأ اليوم بمواد **مرتّبة**: الأولى للحصّة الأولى وهكذا.
+     *
+     * هذا هو الاستعمال الغالب: يؤشّر المستخدم رياضيات ثم فرنسي ثم إنجليزي
+     * فتنزل على الحصص الثلاث الأولى بالترتيب نفسه — بلا أن يفتح كل حصّة.
+     *
+     * ما زاد عن عدد الحصص يُهمَل، وما بقي من حصص يُفرَّغ: القائمة المرسَلة
+     * هي اليوم كلّه لا إضافة عليه.
+     */
+    public function fillGrid(Request $request, Section $section): JsonResponse
+    {
+        $this->authorize('update', $section);
+
+        $data = $request->validate([
+            'day' => ['required', Rule::in(array_column(Weekday::cases(), 'value'))],
+            'term_id' => ['required', Rule::exists('terms', 'id')],
+            'subject_ids' => ['present', 'array'],
+            'subject_ids.*' => [Rule::exists('subjects', 'id')],
+        ]);
+
+        $hours = SectionDayHours::query()
+            ->where('section_id', $section->id)
+            ->where('day_of_week', $data['day'])
+            ->first();
+
+        if (! $hours) {
+            return response()->json(['message' => __('messages.schedule.no_hours')], 422);
+        }
+
+        $periods = $hours->periods();
+        $subjects = array_values($data['subject_ids']);
+
+        $rows = [];
+        foreach ($periods as $index => $period) {
+            $rows[] = [
+                'period_number' => $period['period_number'],
+                'subject_id' => $subjects[$index] ?? null,
+            ];
+        }
+
+        return $this->setGrid(
+            $request->merge(['periods' => $rows]),
+            $section,
+        );
+    }
+
     /** المواد المتاحة لهذه الشعبة — ما يُؤشَّر في الشبكة. */
     public function subjects(Section $section): JsonResponse
     {

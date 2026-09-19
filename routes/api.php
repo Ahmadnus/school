@@ -97,6 +97,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('sections/{section}/hours', [SectionScheduleController::class, 'clearHours']);
     Route::get('sections/{section}/schedule', [SectionScheduleController::class, 'grid']);
     Route::put('sections/{section}/schedule', [SectionScheduleController::class, 'setGrid']);
+    Route::put('sections/{section}/schedule/fill', [SectionScheduleController::class, 'fillGrid']);
     Route::get('sections/{section}/schedule-subjects', [SectionScheduleController::class, 'subjects']);
     Route::apiResource('sections', SectionController::class);
 

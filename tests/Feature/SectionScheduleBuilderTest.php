@@ -205,4 +205,91 @@ class SectionScheduleBuilderTest extends TestCase
         $this->assertCount(3, $names);
         $this->assertNotContains('مادة صفّ آخر', $names);
     }
+
+    public function test_ticked_subjects_land_on_periods_in_the_order_ticked(): void
+    {
+        $this->putJson("/api/sections/{$this->section->id}/hours", [
+            'days' => [0], 'starts_at' => '11:30', 'ends_at' => '17:00', 'period_minutes' => 45,
+        ])->assertOk();
+
+        // رياضيات ثم فرنسي ثم كيمياء → الحصص الأولى والثانية والثالثة.
+        $this->putJson("/api/sections/{$this->section->id}/schedule/fill", [
+            'day' => 0,
+            'term_id' => $this->term->id,
+            'subject_ids' => [
+                $this->subjects[0]->id,
+                $this->subjects[1]->id,
+                $this->subjects[2]->id,
+            ],
+        ])->assertOk();
+
+        $slots = ScheduleSlot::query()->where('day_of_week', 0)->orderBy('period_number')->get();
+
+        $this->assertCount(3, $slots);
+        $this->assertSame($this->subjects[0]->id, $slots[0]->subject_id);
+        $this->assertSame($this->subjects[1]->id, $slots[1]->subject_id);
+        $this->assertSame($this->subjects[2]->id, $slots[2]->subject_id);
+        // الأوقات تتبع ترتيب الحصص بلا أن يكتبها أحد.
+        $this->assertSame('11:30', substr((string) $slots[0]->starts_at, 0, 5));
+        $this->assertSame('13:00', substr((string) $slots[2]->starts_at, 0, 5));
+    }
+
+    public function test_the_same_subject_may_repeat_across_periods(): void
+    {
+        $this->putJson("/api/sections/{$this->section->id}/hours", [
+            'days' => [0], 'starts_at' => '11:30', 'ends_at' => '17:00', 'period_minutes' => 45,
+        ])->assertOk();
+
+        // حصّتا رياضيات متتاليتان أمر عادي في المعاهد.
+        $this->putJson("/api/sections/{$this->section->id}/schedule/fill", [
+            'day' => 0,
+            'term_id' => $this->term->id,
+            'subject_ids' => [$this->subjects[0]->id, $this->subjects[0]->id],
+        ])->assertOk();
+
+        $slots = ScheduleSlot::query()->where('day_of_week', 0)->orderBy('period_number')->get();
+
+        $this->assertCount(2, $slots);
+        $this->assertSame($this->subjects[0]->id, $slots[1]->subject_id);
+    }
+
+    public function test_refilling_a_day_replaces_it_rather_than_appending(): void
+    {
+        $this->putJson("/api/sections/{$this->section->id}/hours", [
+            'days' => [0], 'starts_at' => '11:30', 'ends_at' => '17:00', 'period_minutes' => 45,
+        ])->assertOk();
+
+        $this->putJson("/api/sections/{$this->section->id}/schedule/fill", [
+            'day' => 0, 'term_id' => $this->term->id,
+            'subject_ids' => [$this->subjects[0]->id, $this->subjects[1]->id, $this->subjects[2]->id],
+        ])->assertOk();
+
+        $this->putJson("/api/sections/{$this->section->id}/schedule/fill", [
+            'day' => 0, 'term_id' => $this->term->id,
+            'subject_ids' => [$this->subjects[2]->id],
+        ])->assertOk();
+
+        $slots = ScheduleSlot::query()->where('day_of_week', 0)->get();
+
+        // القائمة المرسَلة هي اليوم كلّه؛ ما لم يُذكَر يُفرَّغ.
+        $this->assertCount(1, $slots);
+        $this->assertSame($this->subjects[2]->id, $slots[0]->subject_id);
+    }
+
+    public function test_more_subjects_than_periods_are_ignored_not_crammed(): void
+    {
+        $this->putJson("/api/sections/{$this->section->id}/hours", [
+            'days' => [6], 'starts_at' => '09:00', 'ends_at' => '10:30', 'period_minutes' => 45,
+        ])->assertOk();
+
+        // يومان حصّتان فقط، وثلاث مواد مؤشَّرة.
+        $this->putJson("/api/sections/{$this->section->id}/schedule/fill", [
+            'day' => 6, 'term_id' => $this->term->id,
+            'subject_ids' => [
+                $this->subjects[0]->id, $this->subjects[1]->id, $this->subjects[2]->id,
+            ],
+        ])->assertOk();
+
+        $this->assertSame(2, ScheduleSlot::query()->where('day_of_week', 6)->count());
+    }
 }
