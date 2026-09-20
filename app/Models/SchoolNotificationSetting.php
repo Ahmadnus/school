@@ -18,6 +18,7 @@ class SchoolNotificationSetting extends Model
         ['key' => 'attendance_present', 'group' => 'attendance'],
         ['key' => 'attendance_summary', 'group' => 'attendance'],
         ['key' => 'attendance_late', 'group' => 'attendance'],
+        ['key' => 'excuse_submitted', 'group' => 'attendance'],
         ['key' => 'excuse_reviewed', 'group' => 'attendance'],
         ['key' => 'grade_published', 'group' => 'academic'],
         // كشف الشعبة إلى المشرفين والإدارة — مفتاح مستقل عن علامة الطالب

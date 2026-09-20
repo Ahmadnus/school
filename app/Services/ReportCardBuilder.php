@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\NotificationApp;
 use App\Enums\ReportCardStatus;
 use App\Models\Assessment;
 use App\Models\GradeScore;
@@ -113,7 +114,47 @@ class ReportCardBuilder
             ]);
         });
 
-        return $card->fresh('lines');
+        $published = $card->fresh('lines');
+
+        // `report_card_published` كان في فهرس الإشعارات ومفاتيحه مترجمة، ولا
+        // يرسله أحد: تصدر الشهادة فلا يعلم الأهل حتى يفتحوا التطبيق مصادفةً.
+        self::notifyGuardians($published);
+
+        return $published;
+    }
+
+    /** الشهادة تخصّ طالباً واحداً، فتذهب إلى أولياء أمره وحدهم. */
+    private static function notifyGuardians(ReportCard $card): void
+    {
+        $card->loadMissing(['student.guardians.user', 'term']);
+        $student = $card->student;
+
+        if (! $student) {
+            return;
+        }
+
+        $term = $card->term?->name ?? '';
+        $body = $card->average === null
+            ? __('notifications.report_card_body_no_average', ['term' => $term])
+            : __('notifications.report_card_body', [
+                'term' => $term,
+                'average' => $card->average,
+            ]);
+
+        foreach ($student->guardians as $guardian) {
+            if (! $guardian->user) {
+                continue;
+            }
+
+            NotificationGate::notify(
+                $guardian->user,
+                'report_card_published',
+                __('notifications.report_card_title', ['name' => $student->full_name]),
+                $body,
+                $card->id,
+                NotificationApp::Guardian,
+            );
+        }
     }
 
     /** @return array<int, int> */

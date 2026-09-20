@@ -42,7 +42,7 @@ class PaymentRecorder
     ): FeePayment {
         $schoolId = $plan->student->school_id;
 
-        return DB::transaction(function () use (
+        $receipt = DB::transaction(function () use (
             $plan, $amount, $paidOn, $recordedBy, $method,
             $installmentId, $description, $reference, $idempotencyKey, $schoolId
         ) {
@@ -94,6 +94,16 @@ class PaymentRecorder
 
             return $payment;
         });
+
+        // خارج المعاملة عمداً: إشعارٌ عن دفعةٍ تراجعت لاحقاً كذبةٌ لا تُسحب.
+        //
+        // و`wasRecentlyCreated` شرطٌ لا تجميل: إعادة إرسال الطلب نفسه تعيد
+        // الإيصال الأول (أعلاه)، فبدونه يصل الأهل إشعاران بدفعةٍ واحدة.
+        if ($receipt->wasRecentlyCreated) {
+            FeeNotifier::paymentRecorded($receipt);
+        }
+
+        return $receipt;
     }
 
     /**

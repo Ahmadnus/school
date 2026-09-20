@@ -5,6 +5,7 @@ return [
     'attendance_present' => 'Attendance recorded',
     'attendance_summary' => 'Roll-call summary',
     'attendance_late' => 'Late arrival recorded',
+    'excuse_submitted' => 'New absence excuse',
     'excuse_reviewed' => 'Absence excuse reviewed',
     'grade_summary' => 'Section grade sheet',
     'honor_board' => 'Honour board',

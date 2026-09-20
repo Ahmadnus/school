@@ -5,6 +5,7 @@ return [
     'attendance_present' => 'تسجيل حضور',
     'attendance_summary' => 'ملخّص الحضور',
     'attendance_late' => 'تسجيل تأخّر',
+    'excuse_submitted' => 'عذر غياب جديد',
     'excuse_reviewed' => 'مراجعة عذر غياب',
     'grade_published' => 'نشر درجة',
     'grade_summary' => 'كشف علامات الشعبة',

@@ -9,6 +9,7 @@ use App\Http\Requests\Attendance\StoreExcuseRequest;
 use App\Http\Resources\AbsenceExcuseResource;
 use App\Models\AbsenceExcuse;
 use App\Models\Student;
+use App\Services\ExcuseNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -48,6 +49,10 @@ class AbsenceExcuseController extends Controller
 
         $excuse = AbsenceExcuse::create($request->validated());
 
+        // Without this the excuse waits silently in the review queue, and the
+        // absence keeps counting as unexcused until somebody happens to look.
+        ExcuseNotifier::submitted($excuse);
+
         return response()->json([
             'message' => __('messages.excuse.created'),
             'data' => new AbsenceExcuseResource($excuse->load('student')),
@@ -78,6 +83,11 @@ class AbsenceExcuseController extends Controller
             'reviewed_by' => $request->user()->id,
             'reviewed_at' => now(),
         ]);
+
+        // The key `excuse_reviewed` has been in the catalog since the start,
+        // but nothing ever sent it: a parent had to reopen the app to learn
+        // whether the absence was cleared.
+        ExcuseNotifier::reviewed($excuse->refresh());
 
         return response()->json([
             'message' => __('messages.excuse.reviewed'),
