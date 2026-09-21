@@ -48,6 +48,19 @@ class StudentSubjects
             ->orderBy('name')
             ->get();
 
+        // الطالب المسجَّل بمواد مختارة لا يدرس مواد صفّه كلّها.
+        //
+        // الاختيار كان يُحفظ في `enrollment_subjects` ثم يُهمَل هنا، فيظهر
+        // مَن سجّل الفرنسيّة وحدها وكأنه يدرس تسع مواد — وتُحسب له علامات
+        // وغيابات في مواد لم يسجّلها أصلاً.
+        //
+        // تسجيلٌ بلا اختيار يعني «الخطة الكاملة»، فتبقى مواد الصفّ كما هي.
+        $chosen = $enrollment->subjects()->pluck('subjects.id');
+
+        if ($chosen->isNotEmpty()) {
+            $subjects = $subjects->whereIn('id', $chosen->all())->values();
+        }
+
         $teachers = TeacherAssignment::query()
             ->where('section_id', $enrollment->section_id)
             ->whereIn('subject_id', $subjects->pluck('id'))
