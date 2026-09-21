@@ -72,9 +72,6 @@ class StudentSubjects
 
         foreach ($subjects as $subject) {
             $subjectAssessments = $assessments->get($subject->id, collect());
-            $totalWeight = 0.0;
-            $earned = 0.0;
-            $any = false;
             $items = [];
 
             foreach ($subjectAssessments as $assessment) {
@@ -85,22 +82,18 @@ class StudentSubjects
                     'type' => $assessment->type?->name,
                     'is_exam' => (bool) ($assessment->type?->is_exam ?? false),
                     'max_score' => (float) $assessment->max_score,
-                    'weight_percent' => $assessment->weight_percent === null ? null : (float) $assessment->weight_percent,
+                    // الوزن الفعّال: وزن الورقة إن كُتب، وإلّا وزن نوعها —
+                    // فترى الشاشة ما يدخل الحساب لا ما هو مخزَّن عليها.
+                    'weight_percent' => $assessment->weight_percent !== null && (float) $assessment->weight_percent > 0
+                        ? (float) $assessment->weight_percent
+                        : (($assessment->type?->weight_percent ?? null) === null
+                            ? null
+                            : (float) $assessment->type->weight_percent),
                     'score' => $score === null ? null : (float) $score,
                 ];
-
-                if ($score === null) {
-                    continue;
-                }
-
-                $any = true;
-                // Same rule as ReportCardBuilder: unweighted = equal share.
-                $weight = (float) $assessment->weight_percent ?: 1.0;
-                $totalWeight += $weight;
-                $earned += ((float) $score / (float) $assessment->max_score) * $weight;
             }
 
-            $percent = $any && $totalWeight > 0 ? ($earned / $totalWeight) * 100 : null;
+            $percent = SubjectGrade::percent($subjectAssessments, $scores);
             $value = $percent === null ? null : round($percent * (float) $subject->max_score / 100, 2);
             $teacher = $teachers->get($subject->id)?->teacher;
 

@@ -16,6 +16,7 @@ class AssessmentTypeResource extends JsonResource
             'sort_order' => $this->sort_order,
             'is_default' => $this->is_default,
             'is_exam' => $this->is_exam,
+            'weight_percent' => $this->weight_percent === null ? null : (float) $this->weight_percent,
             'assessments_count' => $this->whenCounted('assessments'),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

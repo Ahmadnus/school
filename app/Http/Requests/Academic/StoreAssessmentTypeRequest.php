@@ -17,6 +17,8 @@ class StoreAssessmentTypeRequest extends FormRequest
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_default' => ['nullable', 'boolean'],
             'is_exam' => ['nullable', 'boolean'],
+            // حصّة النوع من المئة: «الكويزات ٢٠» تُكتب مرّة لا مع كل ورقة.
+            'weight_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ];
     }
 }

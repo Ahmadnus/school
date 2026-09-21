@@ -12,7 +12,7 @@ class AssessmentType extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['school_id', 'name', 'sort_order', 'is_default', 'is_exam'];
+    protected $fillable = ['school_id', 'name', 'sort_order', 'is_default', 'is_exam', 'weight_percent'];
 
     protected $attributes = [
         'is_default' => false,
@@ -24,6 +24,7 @@ class AssessmentType extends Model
         return [
             'is_default' => 'boolean',
             'is_exam' => 'boolean',
+            'weight_percent' => 'decimal:2',
         ];
     }
 

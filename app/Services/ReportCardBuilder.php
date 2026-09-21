@@ -35,6 +35,7 @@ class ReportCardBuilder
 
         $assessments = Assessment::query()
             ->whereIn('subject_id', $subjects->pluck('id'))
+            ->with('type')
             ->get()
             ->groupBy('subject_id');
 
@@ -50,25 +51,10 @@ class ReportCardBuilder
 
         foreach ($subjects as $subject) {
             $subjectAssessments = $assessments->get($subject->id, collect());
-            $totalWeight = 0.0;
-            $earned = 0.0;
-            $any = false;
 
-            foreach ($subjectAssessments as $assessment) {
-                $score = $scores->get($assessment->id)?->score;
-
-                if ($score === null) {
-                    continue;
-                }
-
-                $any = true;
-                // An unweighted assessment counts as an equal share.
-                $weight = (float) $assessment->weight_percent ?: 1.0;
-                $totalWeight += $weight;
-                $earned += ((float) $score / (float) $assessment->max_score) * $weight;
-            }
-
-            $percent = $any && $totalWeight > 0 ? ($earned / $totalWeight) * 100 : null;
+            // قاعدة واحدة لكل الشاشات: `SubjectGrade` — كانت القسمة مكرّرة
+            // هنا وفي `StudentSubjects`، ونسختان تفترقان عند أول تعديل.
+            $percent = SubjectGrade::percent($subjectAssessments, $scores);
             $value = $percent === null ? null : round($percent * (float) $subject->max_score / 100, 2);
 
             $lines[] = [
