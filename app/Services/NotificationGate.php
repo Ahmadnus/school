@@ -3,12 +3,11 @@
 namespace App\Services;
 
 use App\Enums\NotificationApp;
-use App\Events\NotificationCreated;
+use App\Jobs\DeliverNotification;
 use App\Models\Notification;
 use App\Models\SchoolNotificationSetting;
 use App\Models\User;
 use App\Models\UserNotificationSetting;
-use Illuminate\Support\Facades\Log;
 
 /**
  * A notification is delivered only when it is enabled at BOTH levels
@@ -63,26 +62,24 @@ class NotificationGate
             'ref_id' => $refId,
         ]);
 
-        // Two delivery paths, on purpose:
-        //  - Reverb: instant, for an app that is open right now.
-        //  - FCM: reaches the device even when the app is closed.
+        // التسليم يخرج من الطلب: البثّ والدفع نداءان شبكيّان لكل مستلم،
+        // وإبقاؤهما هنا يجعل المعلّم ينتظرهما وهو واقف أمام صفّه.
         //
-        // Both are best-effort. The in-app record above is the source of
-        // truth; a Reverb server that is down (or an FCM hiccup) must never
-        // turn a successful action into a 500, nor stop the other path —
-        // before this guard an unreachable Reverb aborted the whole fan-out
-        // and no guardian ever got the push.
-        try {
-            NotificationCreated::dispatch($notification);
-        } catch (\Throwable $e) {
-            Log::warning('Realtime broadcast failed: '.$e->getMessage(), ['notification' => $notification->id]);
+        // `afterResponse` مقصودة بدل الطابور: تعمل بلا عامل طوابير يعمل في
+        // الخلفية، فتصحّ على Railway وعلى استضافةٍ مشتركة سواء. ومن ملك
+        // عاملاً حقيقيّاً لاحقاً يبدّلها بـ`dispatch` في سطر واحد.
+        //
+        // وفي الأوامر (التذكير اليومي مثلاً) لا استجابة تُنتظَر، فتُنفَّذ
+        // في حينها، وإلاّ خرج الأمر قبل أن يُرسَل شيء.
+        $delivery = new DeliverNotification($notification, $user);
+
+        if (app()->runningInConsole()) {
+            $delivery->handle();
+
+            return $notification;
         }
 
-        try {
-            FcmSender::send($user, $notification);
-        } catch (\Throwable $e) {
-            Log::warning('FCM push failed: '.$e->getMessage(), ['notification' => $notification->id]);
-        }
+        dispatch($delivery)->afterResponse();
 
         return $notification;
     }

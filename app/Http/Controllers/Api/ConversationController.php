@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\ConversationStatus;
-use App\Enums\NotificationApp;
 use App\Enums\ConversationType;
+use App\Enums\NotificationApp;
 use App\Events\MessageSent;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Message\StoreConversationRequest;
@@ -116,6 +116,22 @@ class ConversationController extends Controller
     public function messages(Request $request, Conversation $conversation): AnonymousResourceCollection
     {
         $this->authorize('view', $conversation);
+
+        // `after_id` يجعل الاستطلاع الدوري رخيصاً: يردّ الجديد وحده، وغالباً
+        // لا شيء — فبدله تنزل ثلاثون رسالة بمرفقاتها كل عشر ثوانٍ لمجرّد
+        // السؤال «هل وصل شيء؟». وهذا ما يبقي الشات حيّاً حيث لا سوكِت:
+        // استضافة مشتركة لا تُشغّل Reverb.
+        if ($request->filled('after_id')) {
+            $messages = $conversation->messages()
+                ->with(['sender', 'attachments'])
+                ->where('id', '>', $request->integer('after_id'))
+                ->orderBy('id')
+                // سقفٌ يمنع صفحةً ضخمة لمن غاب طويلاً؛ الباقي يأتي بطلب تالٍ.
+                ->limit(50)
+                ->get();
+
+            return MessageResource::collection($messages);
+        }
 
         $messages = $conversation->messages()
             ->with(['sender', 'attachments'])
