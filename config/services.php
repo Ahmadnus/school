@@ -47,7 +47,6 @@ return [
         ],
     ],
 
-
     /*
      * Guardian sign-in codes.
      *
@@ -58,5 +57,13 @@ return [
      */
     'guardian_auth' => [
         'expose_code' => (bool) env('GUARDIAN_OTP_EXPOSE_CODE', false),
+
+        // رقم تجريبي واحد برمزٍ ثابت — للعرض والاختبار قبل وصل مزوّد SMS.
+        //
+        // يبقى مقفلاً ما لم يُضبط المتغيّران معاً في البيئة، ويسري على هذا
+        // الرقم وحده: كل رقم آخر يأخذ رمزاً عشوائيّاً كما كان. وحين يُوصَل
+        // مزوّد الرسائل يُحذف السطران من `.env` فيُغلق الباب بلا نشر.
+        'demo_phone' => env('GUARDIAN_OTP_DEMO_PHONE'),
+        'demo_code' => env('GUARDIAN_OTP_DEMO_CODE'),
     ],
 ];

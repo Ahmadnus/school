@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Rules\PhoneNumber;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Models\Guardian;
 use App\Models\GuardianOtp;
 use App\Models\User;
+use App\Rules\PhoneNumber;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -46,7 +46,8 @@ class GuardianAuthController extends Controller
                 ->whereNull('consumed_at')
                 ->update(['consumed_at' => now()]);
 
-            $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $code = self::demoCodeFor($data['phone'])
+                ?? str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
             GuardianOtp::create([
                 'phone' => $data['phone'],
@@ -70,6 +71,32 @@ class GuardianAuthController extends Controller
         return response()->json([
             'message' => __('messages.guardian_auth.code_sent'),
         ]);
+    }
+
+    /**
+     * الرمز الثابت للرقم التجريبي، أو `null` فيبقى العشوائي.
+     *
+     * الرقم يُقارَن بالتساوي التامّ لا بالاحتواء: مطابقةٌ فضفاضة هنا تعني
+     * رمزاً معروفاً لأرقام لم تُقصَد. والمقارنة تُجرى فقط حين يكون
+     * المتغيّران مضبوطين معاً، فالإعداد الناقص لا يفتح شيئاً.
+     */
+    private static function demoCodeFor(string $phone): ?string
+    {
+        $demoPhone = config('services.guardian_auth.demo_phone');
+        $demoCode = config('services.guardian_auth.demo_code');
+
+        if (blank($demoPhone) || blank($demoCode)) {
+            return null;
+        }
+
+        if ($phone !== $demoPhone) {
+            return null;
+        }
+
+        // يُسجَّل كي لا يمرّ استعماله صامتاً في سجلّ الإنتاج.
+        Log::info('Guardian OTP: demo code issued', ['phone' => $phone]);
+
+        return str_pad((string) $demoCode, 6, '0', STR_PAD_LEFT);
     }
 
     /** Step two: exchange the code for a Sanctum token. */
