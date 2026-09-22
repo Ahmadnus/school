@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Rules\PhoneNumber;
 use App\Enums\EnrollmentScope;
 use App\Enums\Gender;
 use App\Enums\GuardianRelation;
@@ -13,6 +12,7 @@ use App\Models\Student;
 use App\Models\StudentCounter;
 use App\Models\StudentImport;
 use App\Models\StudentImportRow;
+use App\Rules\PhoneNumber;
 use Carbon\Exceptions\InvalidFormatException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;

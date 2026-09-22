@@ -3,20 +3,22 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\FeePlanStatus;
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\StudentEnrollmentResource;
 use App\Http\Resources\StudentResource;
 use App\Http\Resources\TermResource;
+use App\Models\FeePlan;
 use App\Models\Student;
 use App\Models\Term;
-use App\Enums\UserRole;
 use App\Services\StudentAttendanceSummary;
 use App\Services\StudentSignals;
 use App\Services\StudentSubjects;
 use App\Services\StudentTimeline;
-use Illuminate\Pagination\LengthAwarePaginator;
+use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 /**
  * The student profile — one entry point that tells the client what the
@@ -48,7 +50,7 @@ class StudentProfileController extends Controller
             'view_behavior' => $user->can('viewBehavior', $student),
             'manage_behavior' => $user->can('manageBehavior', $student),
             'view_fees' => $user->can('viewFees', $student),
-            'manage_fees' => $user->can('create', \App\Models\FeePlan::class)
+            'manage_fees' => $user->can('create', FeePlan::class)
                 && $user->school_id === $student->school_id,
             'review_excuses' => $user->role->isAdministrative(),
             'submit_excuse' => $user->can('viewAcademic', $student),
@@ -78,8 +80,8 @@ class StudentProfileController extends Controller
                 ->with(['activePayments', 'installments.activeAllocations'])
                 ->get();
 
-            $net = \App\Support\Money::sum($plans->map(fn ($p) => $p->netAmount()));
-            $paid = \App\Support\Money::sum($plans->map(fn ($p) => $p->paidAmount()));
+            $net = Money::sum($plans->map(fn ($p) => $p->netAmount()));
+            $paid = Money::sum($plans->map(fn ($p) => $p->paidAmount()));
             $overdue = $plans->flatMap(fn ($p) => $p->installments)
                 ->filter(fn ($i) => $i->isOverdue())
                 ->count();
@@ -200,7 +202,7 @@ class StudentProfileController extends Controller
 
         return response()->json([
             'data' => collect($paginator->items())->map(fn (array $r) => [
-                ...(new StudentResource($r["student"]))->resolve($request),
+                ...(new StudentResource($r['student']))->resolve($request),
                 'signals' => $r['signals'],
             ])->values(),
             'meta' => [

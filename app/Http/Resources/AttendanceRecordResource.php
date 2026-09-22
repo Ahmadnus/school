@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\ExcuseStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -26,7 +27,7 @@ class AttendanceRecordResource extends JsonResource
             // Set by AttendanceController::index for the page in one query.
             'is_excused' => $this->when(
                 array_key_exists('excuse_match', $this->getAttributes()),
-                fn () => $this->excuse_match?->status === \App\Enums\ExcuseStatus::Accepted,
+                fn () => $this->excuse_match?->status === ExcuseStatus::Accepted,
             ),
             'excuse' => $this->when(
                 array_key_exists('excuse_match', $this->getAttributes()),

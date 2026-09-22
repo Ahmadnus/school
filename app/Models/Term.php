@@ -14,7 +14,6 @@ class Term extends Model
 {
     use HasFactory;
 
-
     protected $fillable = ['academic_year_id', 'name', 'start_date', 'end_date', 'is_current'];
 
     protected function casts(): array

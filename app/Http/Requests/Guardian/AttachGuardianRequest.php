@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Guardian;
 
-use App\Rules\PhoneNumber;
 use App\Enums\GuardianRelation;
+use App\Rules\PhoneNumber;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 

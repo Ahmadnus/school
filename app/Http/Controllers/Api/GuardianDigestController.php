@@ -18,8 +18,10 @@ use App\Services\CalendarFeed;
 use App\Services\PostAudience;
 use App\Services\StudentAttendanceSummary;
 use App\Services\StudentSignals;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -47,7 +49,7 @@ class GuardianDigestController extends Controller
             return response()->json(['data' => ['week_start' => null, 'children' => []]]);
         }
 
-        $weekStart = now()->startOfWeek(\Carbon\Carbon::SATURDAY)->toDateString();
+        $weekStart = now()->startOfWeek(Carbon::SATURDAY)->toDateString();
         $today = now()->toDateString();
         $weekAhead = now()->addDays(7)->toDateString();
         $ids = $children->pluck('id');
@@ -95,7 +97,7 @@ class GuardianDigestController extends Controller
             ->pluck('id');
         $unreadPosts = $recentPostIds->count();
         if (Schema::hasTable('post_receipts') && $recentPostIds->isNotEmpty()) {
-            $read = \Illuminate\Support\Facades\DB::table('post_receipts')
+            $read = DB::table('post_receipts')
                 ->where('user_id', $user->id)
                 ->whereIn('post_id', $recentPostIds)
                 ->whereNotNull('read_at')
@@ -132,7 +134,7 @@ class GuardianDigestController extends Controller
         ];
 
         $data = $children->map(function (Student $child) use (
-            $weekRecords, $excused, $behavior, $installments, $today, $weekAhead, $user
+            $weekRecords, $excused, $behavior, $installments, $today, $weekAhead
         ) {
             $rows = $weekRecords->where('student_id', $child->id);
             $week = ['present' => 0, 'late' => 0, 'absent' => 0, 'excused' => 0, 'recorded' => $rows->count()];

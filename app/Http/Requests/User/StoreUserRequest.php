@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\User;
 
-use App\Rules\PhoneNumber;
 use App\Enums\Status;
 use App\Enums\UserRole;
+use App\Rules\PhoneNumber;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;

@@ -8,11 +8,11 @@ use App\Http\Requests\Student\UpdateStudentRequest;
 use App\Http\Resources\StudentResource;
 use App\Models\FeeType;
 use App\Models\Section;
-use App\Support\Money;
-use App\Services\EnrollmentFeePlanner;
-use App\Services\FeePlanBuilder;
 use App\Models\Student;
 use App\Models\StudentEnrollment;
+use App\Services\EnrollmentFeePlanner;
+use App\Services\FeePlanBuilder;
+use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -145,9 +145,20 @@ class StudentController extends Controller
                 : EnrollmentFeePlanner::defaultTypeFor($student->school_id, $section->grade_id);
         }
 
-        $total = isset($data['plan_total_amount'])
+        // المبلغ المكتوب يسود؛ وإلاّ فمجموع أسعار المواد المختارة؛ وإلاّ
+        // فسعر نوع الخطة الكاملة.
+        //
+        // الجمع هنا لا في التطبيق: السعر مالٌ، وحسابه في مكانين يجعل رقم
+        // الشاشة ورقم الفاتورة يفترقان عند أول تعديل على سعر مادة.
+        $written = isset($data['plan_total_amount'])
             ? Money::fromDecimal($data['plan_total_amount'])
-            : ($type?->totalAmount() ?? Money::zero());
+            : null;
+
+        $total = match (true) {
+            $written !== null && $written->isPositive() => $written,
+            $mode === 'subjects' => self::subjectsTotal($data['subject_ids'] ?? []),
+            default => $type?->totalAmount() ?? Money::zero(),
+        };
 
         // مبلغ صفري يعني أن المدرسة لم تضبط نوعاً افتراضيّاً للصف بعد؛
         // خطة بصفر ليست خطة، وإنشاؤها يعني رقماً كاذباً في التقارير.
@@ -207,5 +218,28 @@ class StudentController extends Controller
         $student->delete();
 
         return response()->json(['message' => __('messages.student.deleted')]);
+    }
+
+    /**
+     * مجموع أسعار المواد المختارة.
+     *
+     * السعر يُحمل على نوع رسومٍ مربوطٍ بالمادة؛ ومادةٌ بلا نوع تُحسَب صفراً
+     * ولا تُسقط الباقي — الأَولى خطةٌ ناقصة يراها المحاسب فيُكملها، من
+     * رفضِ التسجيل كلّه لأن مادةً واحدة بلا تسعير.
+     *
+     * @param  array<int, int|string>  $subjectIds
+     */
+    private static function subjectsTotal(array $subjectIds): Money
+    {
+        if ($subjectIds === []) {
+            return Money::zero();
+        }
+
+        $types = FeeType::query()
+            ->whereIn('subject_id', $subjectIds)
+            ->where('status', 'active')
+            ->get();
+
+        return Money::sum($types->map(fn (FeeType $type) => $type->totalAmount()));
     }
 }

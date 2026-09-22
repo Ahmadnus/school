@@ -7,6 +7,7 @@ use App\Enums\Status;
 use App\Enums\TargetScope;
 use App\Enums\UserRole;
 use App\Models\Post;
+use App\Models\PostTarget;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\User;
@@ -150,7 +151,7 @@ class PostAudience
         // One query over post_targets instead of resolving every published
         // post's audience one by one — that loop grew with the school's whole
         // post history on every guardian request.
-        return \App\Models\PostTarget::query()
+        return PostTarget::query()
             ->whereIn('post_id', Post::query()->ofSchool($user->school_id)->published()->select('id'))
             ->where(function ($q) use ($studentIds, $sectionIds, $gradeIds) {
                 $q->where('scope', TargetScope::School->value)

@@ -13,7 +13,6 @@ class AbsenceExcuse extends Model
 {
     use HasFactory;
 
-
     protected $fillable = [
         'student_id',
         'start_date',

@@ -19,6 +19,7 @@ use App\Services\AttendanceSummary;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class AttendanceController extends Controller
@@ -167,7 +168,7 @@ class AttendanceController extends Controller
      * status), so the list can show "excused" and the reason without a
      * query per row. The derived flag is never stored (decision 4-a).
      *
-     * @param  \Illuminate\Support\Collection<int, AttendanceRecord>  $records
+     * @param  Collection<int, AttendanceRecord>  $records
      */
     private function attachExcuses($records): void
     {

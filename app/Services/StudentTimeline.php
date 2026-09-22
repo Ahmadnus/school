@@ -78,7 +78,9 @@ class StudentTimeline
             foreach ($rows as $x) {
                 $events->push(self::event('excuse', $x->start_date->toDateString(),
                     __('timeline.excuse', ['status' => $x->status->label()]), $x->reason, $x->id,
-                    match ($x->status->value) { 'accepted' => 'primary', 'rejected' => 'danger', default => 'warning' }));
+                    match ($x->status->value) {
+                        'accepted' => 'primary', 'rejected' => 'danger', default => 'warning'
+                    }));
             }
         }
 

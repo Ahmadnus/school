@@ -15,7 +15,6 @@ class AttendanceRecord extends Model
 {
     use HasFactory;
 
-
     protected $fillable = [
         'student_id',
         'section_id',

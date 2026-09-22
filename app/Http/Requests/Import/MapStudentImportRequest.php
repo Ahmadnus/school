@@ -4,7 +4,6 @@ namespace App\Http\Requests\Import;
 
 use App\Models\StudentImport;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class MapStudentImportRequest extends FormRequest
 {

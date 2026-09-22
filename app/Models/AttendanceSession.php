@@ -12,7 +12,6 @@ class AttendanceSession extends Model
 {
     use HasFactory;
 
-
     protected $fillable = ['section_id', 'date', 'status', 'submitted_by', 'submitted_at'];
 
     protected $attributes = [

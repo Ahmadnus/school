@@ -9,7 +9,7 @@ enum UserRole: string
     case Teacher = 'teacher';
     case Driver = 'driver';
 
-    /// Parent/guardian account — signs in on the guardian app by phone + OTP.
+    // / Parent/guardian account — signs in on the guardian app by phone + OTP.
     case Guardian = 'guardian';
 
     /** Roles that manage the school: setup, people, academics. */

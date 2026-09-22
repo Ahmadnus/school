@@ -4,6 +4,7 @@ namespace App\Http\Requests\Academic;
 
 use App\Enums\UserRole;
 use App\Models\AcademicYear;
+use App\Models\Grade;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -24,7 +25,7 @@ class StoreTeacherAssignmentRequest extends FormRequest
                 'required',
                 Rule::exists('subjects', 'id')->whereIn(
                     'grade_id',
-                    \App\Models\Grade::query()->select('id')->where('school_id', $schoolId),
+                    Grade::query()->select('id')->where('school_id', $schoolId),
                 ),
             ],
             'section_id' => [

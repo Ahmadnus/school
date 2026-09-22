@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\AttendanceStatus;
 use App\Enums\ExcuseStatus;
 use App\Models\AbsenceExcuse;
+use App\Models\AttendanceRecord;
 use Illuminate\Support\Collection;
 
 /**
@@ -15,7 +16,7 @@ use Illuminate\Support\Collection;
 class AttendanceSummary
 {
     /**
-     * @param  Collection<int, \App\Models\AttendanceRecord>  $records
+     * @param  Collection<int, AttendanceRecord>  $records
      * @return array{present:int, late:int, excused:int, unexcused:int, recorded:int}
      */
     public static function for(Collection $records): array

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Subject extends Model
 {
@@ -39,6 +40,17 @@ class Subject extends Model
             'pass_score' => 'decimal:2',
             'periods_per_week' => 'integer',
         ];
+    }
+
+    /**
+     * سعر تسجيل هذه المادة منفردةً.
+     *
+     * نوع الرسوم هو حامل السعر في النظام كلّه، فلا يُضاف عمود ثانٍ للمال
+     * على المادة: مصدران للسعر يفترقان عند أول تعديل.
+     */
+    public function feeType(): HasOne
+    {
+        return $this->hasOne(FeeType::class)->where('status', 'active');
     }
 
     public function grade(): BelongsTo

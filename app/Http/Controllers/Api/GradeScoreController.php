@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Academic\StoreScoresRequest;
+use App\Http\Resources\AssessmentResource;
 use App\Http\Resources\GradeScoreResource;
+use App\Http\Resources\SectionResource;
 use App\Http\Resources\StudentResource;
 use App\Models\Assessment;
 use App\Models\Section;
@@ -44,7 +46,7 @@ class GradeScoreController extends Controller
 
         return response()->json([
             'data' => [
-                'assessment' => new \App\Http\Resources\AssessmentResource($assessment),
+                'assessment' => new AssessmentResource($assessment),
                 'rows' => $students->map(fn (Student $student) => [
                     'student' => new StudentResource($student),
                     'score' => $scores->has($student->id)
@@ -100,7 +102,7 @@ class GradeScoreController extends Controller
             ->get();
 
         return response()->json([
-            'data' => \App\Http\Resources\SectionResource::collection($sections),
+            'data' => SectionResource::collection($sections),
         ]);
     }
 }

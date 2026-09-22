@@ -12,7 +12,6 @@ use App\Models\UserNotificationSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Validation\Rule;
 
 class NotificationController extends Controller
 {

@@ -98,6 +98,7 @@ class BulkEnrollmentController extends Controller
                         ? __('messages.enrollment.already_in_section')
                         : __('messages.enrollment.already_enrolled_year', ['section' => $existing->section?->name ?? '']),
                 ];
+
                 continue;
             }
 

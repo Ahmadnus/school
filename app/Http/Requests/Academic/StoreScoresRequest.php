@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Academic;
 
+use App\Models\Rubric;
 use App\Models\Student;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -28,7 +29,7 @@ class StoreScoresRequest extends FormRequest
                 'nullable',
                 Rule::exists('rubric_levels', 'id')->whereIn(
                     'rubric_id',
-                    \App\Models\Rubric::query()->select('id')->where('school_id', $schoolId),
+                    Rubric::query()->select('id')->where('school_id', $schoolId),
                 ),
             ],
         ];

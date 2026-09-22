@@ -20,8 +20,8 @@ class SpreadsheetReader
     public static function read(string $absolutePath, string $extension, int $maxRows = 5000): array
     {
         $reader = match (strtolower($extension)) {
-            'xlsx' => new XlsxReader(),
-            'csv', 'txt' => new CsvReader(),
+            'xlsx' => new XlsxReader,
+            'csv', 'txt' => new CsvReader,
             default => throw new RuntimeException('unsupported_format'),
         };
 

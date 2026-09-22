@@ -22,7 +22,7 @@ class SubjectController extends Controller
             ->ofSchool($request->user()->school_id)
             ->when($request->filled('grade_id'), fn ($q) => $q->where('grade_id', $request->integer('grade_id')))
             ->when($request->filled('term_id'), fn ($q) => $q->where('term_id', $request->integer('term_id')))
-            ->with(['grade', 'term'])
+            ->with(['grade', 'term', 'feeType'])
             ->withCount('assignments')
             ->orderBy('name')
             ->get();

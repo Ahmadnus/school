@@ -15,6 +15,7 @@ use App\Models\Post;
 use App\Models\ScheduleSlot;
 use App\Models\StudentEnrollment;
 use App\Models\TeacherAssignment;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -30,7 +31,7 @@ class StaffWorkload
     {
         $schoolId = $ctx->school->id;
 
-        $staff = \App\Models\User::query()
+        $staff = User::query()
             ->where('school_id', $schoolId)
             ->whereIn('role', [UserRole::Teacher->value, UserRole::Admin->value, UserRole::SuperAdmin->value])
             ->where('status', Status::Active)

@@ -19,6 +19,12 @@ class SubjectResource extends JsonResource
             'max_score' => $this->max_score,
             'pass_score' => $this->pass_score,
             'periods_per_week' => $this->periods_per_week,
+            // سعر تسجيل هذه المادة وحدها (نظام «المواد المختارة»):
+            // يأتي من نوع رسوم مربوط بالمادة، و`null` يعني «بلا سعر بعد».
+            'price' => $this->whenLoaded(
+                'feeType',
+                fn () => $this->feeType?->totalAmount()?->toDecimal(),
+            ),
             'grade' => new GradeResource($this->whenLoaded('grade')),
             'term' => new TermResource($this->whenLoaded('term')),
             'teachers' => UserResource::collection($this->whenLoaded('teachers')),

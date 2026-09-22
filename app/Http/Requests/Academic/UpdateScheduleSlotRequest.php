@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Academic;
 
 use App\Enums\Weekday;
+use App\Models\Grade;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -18,7 +19,7 @@ class UpdateScheduleSlotRequest extends FormRequest
                 'sometimes', 'required',
                 Rule::exists('subjects', 'id')->whereIn(
                     'grade_id',
-                    \App\Models\Grade::query()->select('id')->where('school_id', $schoolId),
+                    Grade::query()->select('id')->where('school_id', $schoolId),
                 ),
             ],
             'staff_id' => ['nullable', Rule::exists('users', 'id')->where('school_id', $schoolId)],

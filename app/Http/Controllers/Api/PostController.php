@@ -8,15 +8,17 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Post\ReviewPostRequest;
 use App\Http\Requests\Post\StorePostRequest;
 use App\Http\Requests\Post\UpdatePostRequest;
-use App\Http\Resources\PostResource;
 use App\Http\Resources\PostReceiptResource;
+use App\Http\Resources\PostResource;
 use App\Models\Post;
 use App\Models\PostReceipt;
 use App\Models\PostType;
+use App\Models\User;
 use App\Services\PostAudience;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class PostController extends Controller
@@ -210,12 +212,12 @@ class PostController extends Controller
         return PostReceiptResource::collection($receipts);
     }
 
-    private function canSeeReceipts(\App\Models\User $user, Post $post): bool
+    private function canSeeReceipts(User $user, Post $post): bool
     {
         return $post->author_id === $user->id || $user->role->isAdministrative();
     }
 
-    /** @return array{read_at: ?\Illuminate\Support\Carbon, confirmed_at: ?\Illuminate\Support\Carbon} */
+    /** @return array{read_at: ?Carbon, confirmed_at: ?Carbon} */
     private function receiptState(PostReceipt $receipt): array
     {
         return ['read_at' => $receipt->read_at, 'confirmed_at' => $receipt->confirmed_at];

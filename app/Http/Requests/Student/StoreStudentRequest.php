@@ -5,6 +5,8 @@ namespace App\Http\Requests\Student;
 use App\Enums\EnrollmentScope;
 use App\Enums\Gender;
 use App\Enums\Status;
+use App\Models\AcademicYear;
+use App\Models\FeeType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -41,7 +43,7 @@ class StoreStudentRequest extends FormRequest
                 'nullable',
                 Rule::exists('sections', 'id')->whereIn(
                     'academic_year_id',
-                    \App\Models\AcademicYear::query()->select('id')->where('school_id', $schoolId),
+                    AcademicYear::query()->select('id')->where('school_id', $schoolId),
                 ),
             ],
             'scope' => ['nullable', 'required_with:section_id', Rule::enum(EnrollmentScope::class)],
@@ -65,12 +67,10 @@ class StoreStudentRequest extends FormRequest
 
             // المبلغ يُكتب يدويّاً مع المواد المختارة؛ الخطة الكاملة تأخذه
             // من نوع الرسوم الافتراضي للصف، وتمريره هنا يجعله يسود عليه.
-            'plan_total_amount' => [
-                'nullable',
-                'required_if:plan_mode,subjects',
-                'numeric',
-                'min:0',
-            ],
+            // لم يعد إلزاميّاً مع المواد المختارة: الخادم يجمع أسعارها،
+            // ويبقى المكتوب مسموحاً ليسود عند الحاجة (حالة خاصّة، خصم متّفق
+            // عليه). كتابته لكل تسجيل كانت تعني حسبةً يدويّة تُخطئ.
+            'plan_total_amount' => ['nullable', 'numeric', 'min:0'],
             'plan_discount_amount' => ['nullable', 'numeric', 'min:0'],
             'plan_discount_reason' => [
                 'nullable',
@@ -79,5 +79,39 @@ class StoreStudentRequest extends FormRequest
                 'required_with:plan_discount_amount',
             ],
         ];
+    }
+
+    /**
+     * المواد المختارة تحتاج سعراً — من أسعار المواد أو مكتوباً باليد.
+     *
+     * بلا هذا الفحص يُنشأ الطالب ولا تُنشأ له خطة (المبلغ صفر، والخطة
+     * الصفرية تُتخطّى عمداً)، فيمضي التسجيل بنجاحٍ ظاهر ويختفي الطالب من
+     * صفحة الرسوم — مالٌ لا يطالب به أحد لأن أحداً لا يعلم أنه غائب.
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            if ($this->input('plan_mode') !== 'subjects') {
+                return;
+            }
+
+            if ((float) $this->input('plan_total_amount', 0) > 0) {
+                return;
+            }
+
+            $priced = FeeType::query()
+                ->whereIn('subject_id', (array) $this->input('subject_ids', []))
+                ->where('status', 'active')
+                ->sum('total_minor');
+
+            if ((int) $priced > 0) {
+                return;
+            }
+
+            $validator->errors()->add(
+                'plan_total_amount',
+                __('validation.required', ['attribute' => __('validation.attributes.plan_total_amount')]),
+            );
+        });
     }
 }
