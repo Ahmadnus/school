@@ -2,16 +2,25 @@
 
 namespace App\Services;
 
+use App\Enums\AttendanceSessionStatus;
 use App\Models\AttendanceRecord;
+use App\Models\AttendanceSession;
 use App\Models\Student;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
  * The attendance summary shown at the top of a student's profile.
  *
- * Counts come straight from attendance_records; "excused" is derived from an
- * accepted excuse covering the day (decision 4-a), so the four states add up
- * to the number of recorded days. Two rates are returned:
+ * الحضور لا يُخزَّن: تُكتب الغيابات والتأخّرات وحدها، ويُستدلّ على الحضور
+ * بالطرح — يومٌ سُلِّم فيه كشف الشعبة ولم يُكتب فيه للطالب سجلّ هو يوم حضور.
+ * وهذا ما يجعل أيام الحضور مجّانيةً في التخزين وفي الإشعارات معاً.
+ *
+ * ولهذا يُعدّ «المسجَّل» من الجلسات المسلَّمة لا من الصفوف: لولا ذلك لما
+ * أمكن التفريق بين «حاضر» و«لم يُؤخذ الحضور أصلاً» — والفرق بينهما نسبةُ
+ * حضورٍ تُعلَّق على طالب.
+ *
+ * "excused" is derived from an accepted excuse covering the day (decision
+ * 4-a). Two rates are returned:
  *
  * - `attendance_rate`: (present + late) / recorded — the raw figure.
  * - `effective_rate`: (present + late) / (recorded − excused) — the rate the
@@ -35,14 +44,30 @@ class StudentAttendanceSummary
         $records = $query->get(['id', 'student_id', 'date', 'status']);
         $base = AttendanceSummary::for($records);
 
-        $recorded = $base['recorded'];
-        $attended = $base['present'] + $base['late'];
+        // الجلسات المسلَّمة لشُعَب الطالب، بالمرشّحات نفسها: الإغلاق يعمل
+        // على `date` و`section_id` و`section.academic_year_id`، وثلاثتها
+        // أعمدةٌ في الجلسة كما في السجلّ.
+        $sessions = AttendanceSession::query()
+            ->where('status', AttendanceSessionStatus::Submitted)
+            ->whereIn('section_id', $student->enrollments()->pluck('section_id'))
+            ->when($constrain !== null, $constrain ?? fn () => null)
+            ->count();
+
+        $late = $base['late'];
+        $absent = $base['excused'] + $base['unexcused'];
+
+        // `max` حارس لا تجميل: سجلٌّ في يومٍ لم تُسلَّم جلسته (إدخال يدويّ
+        // قديم) كان سيُنتج حضوراً سالباً.
+        $present = max(0, $sessions - $late - $absent);
+
+        $recorded = max($sessions, $late + $absent);
+        $attended = $present + $late;
         $judged = $recorded - $base['excused'];
 
         return [
-            'present' => $base['present'],
-            'late' => $base['late'],
-            'absent' => $base['excused'] + $base['unexcused'],
+            'present' => $present,
+            'late' => $late,
+            'absent' => $absent,
             'excused' => $base['excused'],
             'unexcused' => $base['unexcused'],
             'recorded' => $recorded,

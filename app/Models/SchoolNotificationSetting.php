@@ -14,8 +14,9 @@ class SchoolNotificationSetting extends Model
 
     /** The keys both settings screens are built from. */
     public const CATALOG = [
+        // لا مفتاح للحضور: لم يعد يُسجَّل، ومفتاحٌ في الإعدادات لا يتحكّم
+        // بشيء أسوأ من غيابه — يَعِد بما لا يقع.
         ['key' => 'attendance_absence', 'group' => 'attendance'],
-        ['key' => 'attendance_present', 'group' => 'attendance'],
         ['key' => 'attendance_summary', 'group' => 'attendance'],
         ['key' => 'attendance_late', 'group' => 'attendance'],
         ['key' => 'excuse_submitted', 'group' => 'attendance'],

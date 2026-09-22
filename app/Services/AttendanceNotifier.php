@@ -16,9 +16,10 @@ use Illuminate\Support\Collection;
  * What a submitted roll call tells people.
  *
  * - Every guardian with the app hears how their child was marked today —
- *   present, late or absent (`attendance_present` / `attendance_late` /
- *   `attendance_absence`, guardian switches, so a school can keep only the
- *   absence alerts if it prefers).
+ *   غائباً أو متأخّراً (`attendance_absence` / `attendance_late`). ولا
+ *   إشعار بالحضور: الحضور لم يعد يُسجَّل أصلاً، وإشعارٌ يوميّ يقول «ابنك
+ *   حضر» يُدرّب وليّ الأمر على تجاهل إشعارات المدرسة فيفوته إشعار الغياب
+ *   حين يأتي.
  * - Administrators get one summary per section: present / late / absent
  *   counts with the absent names (`attendance_summary`, staff switch).
  * - When a student's unexcused absences in the current year reach the
@@ -49,6 +50,8 @@ class AttendanceNotifier
         foreach ($records as $record) {
             $student = $record->student;
             $key = match ($record->status) {
+                // لا يصل هنا: الحضور لا يُكتب سجلّاً. تبقى الحالة مذكورة
+                // لأن `match` يجب أن يستوفي النوع، ولسجلّات قديمة محفوظة.
                 AttendanceStatus::Present => 'attendance_present',
                 AttendanceStatus::Late => 'attendance_late',
                 AttendanceStatus::Absent => 'attendance_absence',

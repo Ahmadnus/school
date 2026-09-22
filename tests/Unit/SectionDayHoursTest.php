@@ -12,7 +12,7 @@ class SectionDayHoursTest extends TestCase
 {
     private function hours(string $from, string $to, int $length = 45, int $break = 0): SectionDayHours
     {
-        $model = new SectionDayHours();
+        $model = new SectionDayHours;
         $model->starts_at = $from;
         $model->ends_at = $to;
         $model->period_minutes = $length;

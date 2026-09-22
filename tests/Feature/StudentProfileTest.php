@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Enums\AttendanceSessionStatus;
 use App\Enums\AttendanceStatus;
 use App\Enums\UserRole;
 use App\Models\AbsenceExcuse;
 use App\Models\AcademicYear;
 use App\Models\AttendanceRecord;
+use App\Models\AttendanceSession;
 use App\Models\BehaviorRecord;
 use App\Models\FeePlan;
 use App\Models\Grade;
@@ -230,8 +232,20 @@ class StudentProfileTest extends TestCase
 
     public function test_attendance_summary_derives_excused_absences_and_rates(): void
     {
+        // الحضور لا يُكتب: يومٌ سُلِّمت جلسته بلا سجلّ للطالب هو حضور.
+        // فالأربعة أيام جلسات، والسجلّات ثلاثة (تأخّر وغيابان).
         $days = ['2026-09-01' => 'present', '2026-09-02' => 'late', '2026-09-03' => 'absent', '2026-09-06' => 'absent'];
         foreach ($days as $date => $status) {
+            AttendanceSession::factory()->create([
+                'section_id' => $this->section->id,
+                'date' => $date,
+                'status' => AttendanceSessionStatus::Submitted,
+            ]);
+
+            if ($status === 'present') {
+                continue;
+            }
+
             AttendanceRecord::factory()->create([
                 'student_id' => $this->child->id,
                 'section_id' => $this->section->id,
@@ -273,7 +287,9 @@ class StudentProfileTest extends TestCase
             'date' => '2026-09-01',
         ]);
         Sanctum::actingAs($this->guardianUser);
-        $this->getJson('/api/attendance')->assertOk()->assertJsonCount(4, 'data');
+        // ثلاثة: سجلّ لكل تأخّر وغياب؛ يوم الحضور لا سجلّ له. وسجلّ الابن
+        // الآخر محجوب عن هذا الوليّ.
+        $this->getJson('/api/attendance')->assertOk()->assertJsonCount(3, 'data');
         $this->getJson("/api/students/{$this->otherChild->id}/attendance-summary")->assertForbidden();
     }
 
