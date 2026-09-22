@@ -66,7 +66,56 @@ class ConversationController extends Controller
 
         $user = $request->user();
 
-        $conversation = DB::transaction(function () use ($request, $user) {
+        // الأطراف المقصودون: المفتِح دائماً منهم.
+        $ids = collect($request->input('participant_ids', []))
+            ->push($user->id)
+            ->unique()
+            ->sort()
+            ->values();
+
+        // محادثة قائمة بالأطراف أنفسهم تُكمَّل ولا تُستنسَخ.
+        //
+        // بلا هذا يصير لكل رسالة افتتاحية خيطٌ جديد مع الشخص نفسه: يفتح
+        // وليّ الأمر التطبيق فيجد ثلاث محادثات بالاسم ذاته، ويقرأ ردّ
+        // المدرسة في واحدة ويكتب في أخرى، ويضيع السياق بين الخيوط.
+        $existing = Conversation::query()
+            ->ofSchool($user->school_id)
+            ->where('type', $request->input('type'))
+            ->where('student_id', $request->input('student_id'))
+            ->whereHas('participantRecords', fn ($q) => $q->where('user_id', $user->id))
+            ->with('participantRecords')
+            ->get()
+            ->first(fn (Conversation $c) => $c->participantRecords
+                ->pluck('user_id')
+                ->unique()
+                ->sort()
+                ->values()
+                ->all() === $ids->all());
+
+        if ($existing !== null) {
+            $message = DB::transaction(function () use ($existing, $request, $user) {
+                $message = $existing->messages()->create([
+                    'sender_id' => $user->id,
+                    'body' => $request->input('body'),
+                    'sent_at' => now(),
+                ]);
+
+                $existing->update(['last_message_at' => now()]);
+
+                return $message;
+            });
+
+            $this->notifyParticipants($existing, $message, $user);
+
+            return response()->json([
+                'message' => __('messages.message.sent'),
+                'data' => new ConversationResource(
+                    $existing->fresh(['student', 'participants', 'participantRecords', 'lastMessage']),
+                ),
+            ]);
+        }
+
+        [$conversation, $message] = DB::transaction(function () use ($request, $user, $ids) {
             $conversation = Conversation::create([
                 'school_id' => $user->school_id,
                 'type' => $request->input('type'),
@@ -75,11 +124,6 @@ class ConversationController extends Controller
                 'last_message_at' => now(),
             ]);
 
-            // The opener is always a participant.
-            $ids = collect($request->input('participant_ids', []))
-                ->push($user->id)
-                ->unique();
-
             foreach ($ids as $id) {
                 $conversation->participantRecords()->create([
                     'user_id' => $id,
@@ -87,14 +131,18 @@ class ConversationController extends Controller
                 ]);
             }
 
-            $conversation->messages()->create([
+            $message = $conversation->messages()->create([
                 'sender_id' => $user->id,
                 'body' => $request->input('body'),
                 'sent_at' => now(),
             ]);
 
-            return $conversation;
+            return [$conversation, $message];
         });
+
+        // الرسالة الافتتاحية كانت تُحفظ بلا إشعار: يكتب وليّ الأمر أول رسالة
+        // فلا يعلم بها أحد حتى يفتح أحدهم قائمة المحادثات مصادفةً.
+        $this->notifyParticipants($conversation, $message, $user);
 
         return response()->json([
             'message' => __('messages.conversation.created'),
