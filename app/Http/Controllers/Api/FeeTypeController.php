@@ -24,6 +24,14 @@ class FeeTypeController extends Controller
             ->when($request->filled('grade_id'), fn ($q) => $q->where('grade_id', $request->integer('grade_id')))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->has('is_transport'), fn ($q) => $q->where('is_transport', $request->boolean('is_transport')))
+            // نوعٌ مربوط بمادة هو **سعر مادة** لا خطةَ صفّ، ولا مكان له في
+            // قائمة «اختر الخطة الكاملة»: اختياره يعني تسجيل طالبٍ لسنةٍ
+            // كاملة بسعر مادةٍ واحدة.
+            //
+            // شاشة إدارة الأنواع تطلبها كلّها (بلا هذا المعامل)، وشاشة
+            // التسجيل تطلب الخطط وحدها.
+            ->when($request->boolean('plans_only'), fn ($q) => $q->whereNull('subject_id'))
+            ->when($request->boolean('subjects_only'), fn ($q) => $q->whereNotNull('subject_id'))
             ->with(['grade', 'subject', 'installments'])
             ->withCount('plans')
             ->orderBy('name')
