@@ -243,6 +243,78 @@ class FeeSystemTest extends TestCase
         $this->assertSame($this->admin->id, $payment->voided_by);
     }
 
+    public function test_correcting_a_payment_voids_the_wrong_receipt_and_issues_a_right_one(): void
+    {
+        $plan = $this->plan();
+
+        // أُدخلت 400 والصحيح 40: الخطأ الذي بُني له هذا المسار.
+        $wrongId = $this->postJson("/api/fee-plans/{$plan->id}/payments", [
+            'amount' => '400.00',
+            'paid_on' => now()->toDateString(),
+        ])->json('data.id');
+
+        $rightId = $this->postJson("/api/fee-payments/{$wrongId}/correct", [
+            'amount' => '40.00',
+            'paid_on' => now()->toDateString(),
+            'description' => 'قسط أول',
+        ])->assertOk()
+            ->assertJsonPath('data.amount', '40.00')
+            ->assertJsonPath('data.corrects_payment_id', $wrongId)
+            ->assertJsonPath('plan.paid_amount', '40.00')
+            ->assertJsonPath('plan.remaining_amount', '960.00')
+            ->json('data.id');
+
+        // الخطأ لم يُحذف: صفّه باقٍ ملغى بسببه، وبرقم إيصاله.
+        $wrong = FeePayment::findOrFail($wrongId);
+        $this->assertTrue($wrong->isVoided());
+        $this->assertNotNull($wrong->void_reason);
+        $this->assertNotSame($wrongId, $rightId);
+
+        // ولا فلس بلا قسط يحمله.
+        $right = FeePayment::findOrFail($rightId);
+        $this->assertSame(
+            $right->amount()->toDecimal(),
+            Money::sum($right->allocations->map(fn ($a) => $a->amount()))->toDecimal(),
+        );
+    }
+
+    public function test_a_correction_upward_is_still_capped_by_the_remaining_balance(): void
+    {
+        $plan = $this->plan();
+
+        $paymentId = $this->postJson("/api/fee-plans/{$plan->id}/payments", [
+            'amount' => '100.00',
+            'paid_on' => now()->toDateString(),
+        ])->json('data.id');
+
+        // 1200 > صافي الخطة حتى بعد تحرير المئة: يُرفض، والإيصال الأصلي يبقى
+        // ساري المفعول لأن الإلغاء والإصدار معاملة واحدة.
+        $this->postJson("/api/fee-payments/{$paymentId}/correct", [
+            'amount' => '1200.00',
+            'paid_on' => now()->toDateString(),
+        ])->assertStatus(422);
+
+        $this->assertFalse(FeePayment::findOrFail($paymentId)->isVoided());
+        $this->assertSame('100.00', $plan->fresh()->paidAmount()->toDecimal());
+    }
+
+    public function test_a_voided_receipt_cannot_be_corrected(): void
+    {
+        $plan = $this->plan();
+
+        $paymentId = $this->postJson("/api/fee-plans/{$plan->id}/payments", [
+            'amount' => '100.00',
+            'paid_on' => now()->toDateString(),
+        ])->json('data.id');
+
+        $this->postJson("/api/fee-payments/{$paymentId}/void", ['reason' => 'مكرر'])->assertOk();
+
+        $this->postJson("/api/fee-payments/{$paymentId}/correct", [
+            'amount' => '50.00',
+            'paid_on' => now()->toDateString(),
+        ])->assertStatus(422);
+    }
+
     public function test_voiding_requires_a_reason(): void
     {
         $plan = $this->plan();

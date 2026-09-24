@@ -39,12 +39,13 @@ class PaymentRecorder
         ?string $description = null,
         ?string $reference = null,
         ?string $idempotencyKey = null,
+        ?int $correctsPaymentId = null,
     ): FeePayment {
         $schoolId = $plan->student->school_id;
 
         $receipt = DB::transaction(function () use (
             $plan, $amount, $paidOn, $recordedBy, $method,
-            $installmentId, $description, $reference, $idempotencyKey, $schoolId
+            $installmentId, $description, $reference, $idempotencyKey, $schoolId, $correctsPaymentId
         ) {
             // إعادة إرسال الطلب نفسه (ضغطة مزدوجة، أو إعادة محاولة بعد انقطاع
             // الشبكة) تعيد الإيصال الأول بدل أن تقبض المبلغ مرتين.
@@ -87,6 +88,7 @@ class PaymentRecorder
                 'description' => $description,
                 'reference' => $reference,
                 'idempotency_key' => $idempotencyKey,
+                'corrects_payment_id' => $correctsPaymentId,
                 'recorded_by' => $recordedBy->id,
             ]);
 
@@ -177,6 +179,54 @@ class PaymentRecorder
             ])->save();
 
             return $payment;
+        });
+    }
+
+    /**
+     * تصحيح إيصال أُدخل بمبلغ (أو تاريخ أو وصف) خطأ.
+     *
+     * لا تعديل في مكانه: الإيصال الخطأ يُلغى بسببه، ويصدر إيصال جديد بالقيم
+     * الصحيحة يشير إليه. هكذا يبقى ما قُبض وما صُحّح ومن صحّحه مرئياً كلّه،
+     * ويظلّ كل مبلغ في الدفاتر مسنوداً بصفّه.
+     *
+     * الإلغاء والإصدار في معاملة واحدة: لو كُتب الإلغاء وسقط الإصدار لظهر
+     * الطالب مديناً بمبلغٍ قبضه فعلاً. والإلغاء يسبق الفحص عمداً، لأن المتبقّي
+     * بعد الإلغاء وحده هو ما يُقاس عليه المبلغ الجديد — بغيره يُرفض تصحيحُ
+     * دفعةٍ استوفت الخطة إلى مبلغ أصغر.
+     */
+    public static function correct(
+        FeePayment $payment,
+        User $by,
+        Money $amount,
+        Carbon $paidOn,
+        PaymentMethod $method = PaymentMethod::Cash,
+        ?string $description = null,
+        ?string $reference = null,
+        ?int $installmentId = null,
+        ?string $reason = null,
+    ): FeePayment {
+        return DB::transaction(function () use (
+            $payment, $by, $amount, $paidOn, $method, $description, $reference, $installmentId, $reason
+        ) {
+            $payment = FeePayment::query()->lockForUpdate()->findOrFail($payment->id);
+
+            if ($payment->isVoided()) {
+                throw ValidationException::withMessages(['payment' => __('messages.fee_payment.already_voided')]);
+            }
+
+            self::void($payment, $by, $reason ?: __('messages.fee_payment.corrected_reason'));
+
+            return self::record(
+                plan: $payment->plan,
+                amount: $amount,
+                paidOn: $paidOn,
+                recordedBy: $by,
+                method: $method,
+                installmentId: $installmentId,
+                description: $description,
+                reference: $reference,
+                correctsPaymentId: $payment->id,
+            );
         });
     }
 

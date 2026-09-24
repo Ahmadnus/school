@@ -203,6 +203,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('fee-plans/{fee_plan}/payments', [FeePaymentController::class, 'index']);
     Route::post('fee-plans/{fee_plan}/payments', [FeePaymentController::class, 'store']);
     // الإيصال لا يُحذف؛ يُلغى بسبب ويبقى في السجل.
+    Route::post('fee-payments/{payment}/correct', [FeePaymentController::class, 'correct']);
     Route::post('fee-payments/{payment}/void', [FeePaymentController::class, 'void']);
     Route::apiResource('fee-plans', FeePlanController::class)
         ->parameters(['fee-plans' => 'fee_plan']);

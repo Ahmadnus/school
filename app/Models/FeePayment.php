@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * إيصال قبض. لا يُحذف أبداً — الإلغاء يترك الصف مكانه مع سببه ومن ألغاه،
@@ -30,6 +31,7 @@ class FeePayment extends Model
         'description',
         'reference',
         'idempotency_key',
+        'corrects_payment_id',
         'recorded_by',
     ];
 
@@ -65,6 +67,18 @@ class FeePayment extends Model
     public function voider(): BelongsTo
     {
         return $this->belongsTo(User::class, 'voided_by');
+    }
+
+    /** الإيصال الخطأ الذي صحّحه هذا الإيصال. */
+    public function corrects(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'corrects_payment_id');
+    }
+
+    /** الإيصال الذي صحّح هذا الإيصال — إن كان أُلغي تصحيحاً لا إلغاءً عادياً. */
+    public function correction(): HasOne
+    {
+        return $this->hasOne(self::class, 'corrects_payment_id');
     }
 
     public function amount(): Money

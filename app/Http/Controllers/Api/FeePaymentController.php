@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\PaymentMethod;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Fee\CorrectFeePaymentRequest;
 use App\Http\Requests\Fee\StoreFeePaymentRequest;
 use App\Http\Requests\Fee\VoidFeePaymentRequest;
 use App\Http\Resources\FeePaymentResource;
@@ -53,6 +54,35 @@ class FeePaymentController extends Controller
             // بطاقة الطالب تتحرّك مع الإيصال: المدفوع والمتبقّي وحالة كل قسط.
             'plan' => new FeePlanResource($feePlan->fresh(['installments.activeAllocations', 'activePayments'])),
         ], 201);
+    }
+
+    /**
+     * تصحيح مبلغ (أو تاريخ) أُدخل خطأ: يُلغى الإيصال الخطأ ويصدر بديلٌ صحيح
+     * مربوط به. لا تعديل في مكانه حتى لا يتغيّر مبلغٌ في الدفاتر بلا أثر.
+     */
+    public function correct(CorrectFeePaymentRequest $request, FeePayment $payment): JsonResponse
+    {
+        $this->authorize('pay', $payment->plan);
+
+        $corrected = PaymentRecorder::correct(
+            payment: $payment,
+            by: $request->user(),
+            amount: Money::fromDecimal($request->input('amount')),
+            paidOn: Carbon::parse($request->input('paid_on')),
+            method: PaymentMethod::from($request->input('method', $payment->method->value)),
+            description: $request->input('description'),
+            reference: $request->input('reference'),
+            installmentId: $request->integer('installment_id') ?: null,
+            reason: $request->input('reason'),
+        );
+
+        return response()->json([
+            'message' => __('messages.fee_payment.corrected'),
+            'data' => new FeePaymentResource($corrected->load('allocations')),
+            'plan' => new FeePlanResource(
+                $corrected->plan->fresh(['installments.activeAllocations', 'activePayments']),
+            ),
+        ]);
     }
 
     /**
