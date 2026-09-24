@@ -181,6 +181,8 @@ return [
         'created' => 'Payment recorded.',
         'deleted' => 'Payment deleted.',
         'voided' => 'Receipt voided.',
+        'corrected' => 'Payment corrected; a new receipt was issued.',
+        'corrected_reason' => 'Correction of a wrongly entered amount.',
         'already_voided' => 'This receipt is already voided.',
         'must_be_positive' => 'The amount must be greater than zero.',
         'exceeds_remaining' => 'The amount is larger than the remaining balance (:remaining).',

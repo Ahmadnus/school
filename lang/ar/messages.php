@@ -181,6 +181,8 @@ return [
         'created' => 'تم تسجيل الدفعة.',
         'deleted' => 'تم حذف الدفعة.',
         'voided' => 'تم إلغاء الإيصال.',
+        'corrected' => 'تم تصحيح الدفعة وإصدار إيصال جديد.',
+        'corrected_reason' => 'تصحيح مبلغ أُدخل خطأ.',
         'already_voided' => 'الإيصال ملغى أصلاً.',
         'must_be_positive' => 'المبلغ يجب أن يكون أكبر من صفر.',
         'exceeds_remaining' => 'المبلغ أكبر من المتبقّي (:remaining).',

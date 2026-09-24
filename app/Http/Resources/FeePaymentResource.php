@@ -22,6 +22,8 @@ class FeePaymentResource extends JsonResource
             'recorded_by' => $this->recorded_by,
             'recorder_name' => $this->whenLoaded('recorder', fn () => $this->recorder?->name),
             'is_voided' => $this->isVoided(),
+            // إيصالٌ أُلغي تصحيحاً يُعرض غير إيصالٍ أُلغي إلغاءً: الأول له بديل.
+            'corrects_payment_id' => $this->corrects_payment_id,
             'voided_at' => $this->voided_at,
             'void_reason' => $this->void_reason,
             'allocations' => $this->whenLoaded('allocations', fn () => $this->allocations->map(fn ($a) => [
