@@ -26,7 +26,8 @@ class FeeReminderCandidates
      * @return Collection<int, array{
      *     student_id:int, student_name:string, placement:?string,
      *     total:string, paid:string, remaining:string,
-     *     last_payment_on:?string, days_since:int, guardians:int
+     *     last_payment_on:?string, days_since:int, guardians:int,
+     *     pending_contacts:list<string>
      * }>
      */
     public static function for(int $schoolId, int $days = 30): Collection
@@ -78,11 +79,20 @@ class FeeReminderCandidates
                     'remaining' => (string) $remaining->toDecimal(),
                     'last_payment_on' => $last?->paid_on?->format('Y-m-d'),
                     'days_since' => (int) $since->diffInDays(Carbon::today()),
-                    // بلا وليّ أمر له حساب لا يصل التذكير؛ تُعرَض الحقيقة
-                    // بدل أن يُحسَب مُرسَلاً.
+                    // حساب وليّ الأمر يُنشأ عند أوّل تسجيل دخول بالـ OTP، فمن
+                    // أُدخل اسمه ورقمه ولم يفتح التطبيق بعد لا يصله شيء.
                     'guardians' => $student->guardians
                         ->filter(fn ($guardian) => $guardian->user !== null)
                         ->count(),
+                    // تُعرَض أرقامهم لا عددهم: المدير يحتاج أن يتّصل بهم أو
+                    // يرسل لهم رابط التطبيق، لا أن يُخبَر أنّ هناك مشكلة.
+                    'pending_contacts' => $student->guardians
+                        ->filter(fn ($guardian) => $guardian->user === null)
+                        ->map(fn ($guardian) => trim(
+                            $guardian->name.' '.($guardian->phone ?? ''),
+                        ))
+                        ->values()
+                        ->all(),
                 ];
             })
             ->filter()
