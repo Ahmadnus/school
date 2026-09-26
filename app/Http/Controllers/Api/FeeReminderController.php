@@ -51,6 +51,7 @@ class FeeReminderController extends Controller
             ->get();
 
         $sent = 0;
+        $notSignedIn = [];
         $withoutGuardian = [];
 
         foreach ($students as $student) {
@@ -70,7 +71,15 @@ class FeeReminderController extends Controller
             $recipients = $student->guardians->filter(fn ($g) => $g->user !== null);
 
             if ($recipients->isEmpty()) {
-                $withoutGuardian[] = $student->full_name;
+                // حساب وليّ الأمر يُنشأ عند أوّل تسجيل دخول بالـ OTP. فمن
+                // أُدخل اسمه ورقمه ولم يفتح التطبيق بعد حالتُه غير حالة من
+                // لا وليّ أمر له أصلاً: الأوّل يُتابَع بمكالمة، والثاني
+                // يُدخَل وليّه. خلطهما يُخفي الفرق عن المدرسة.
+                if ($student->guardians->isNotEmpty()) {
+                    $notSignedIn[] = $student->full_name;
+                } else {
+                    $withoutGuardian[] = $student->full_name;
+                }
 
                 continue;
             }
@@ -96,8 +105,9 @@ class FeeReminderController extends Controller
             'message' => __('messages.fee_reminder.sent', ['count' => $sent]),
             'data' => [
                 'sent' => $sent,
-                // من لا وليّ أمر له لم يصله شيء؛ إخفاء ذلك يجعل المدرسة
-                // تظنّ أنها طالبت وهي لم تفعل.
+                // من لم يصله شيء يُعلَن، لا يُحسَب مُرسَلاً: إخفاء ذلك يجعل
+                // المدرسة تظنّ أنها طالبت وهي لم تفعل.
+                'not_signed_in' => $notSignedIn,
                 'without_guardian' => $withoutGuardian,
             ],
         ]);

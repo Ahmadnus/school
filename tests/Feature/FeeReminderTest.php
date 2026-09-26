@@ -31,6 +31,9 @@ class FeeReminderTest extends TestCase
 
     private AcademicYear $year;
 
+    /** الرقم فريد داخل المدرسة، فيُزاد مع كل وليّ أمر. */
+    private int $phones = 6000;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -43,7 +46,7 @@ class FeeReminderTest extends TestCase
         );
     }
 
-    private function student(string $name, bool $withGuardian = true): Student
+    private function student(string $name, ?bool $withGuardian = true): Student
     {
         $student = Student::factory()->create([
             'school_id' => $this->school->id,
@@ -51,11 +54,16 @@ class FeeReminderTest extends TestCase
             'last_name' => 'تجريبي',
         ]);
 
-        if ($withGuardian) {
-            $user = User::factory()->role(UserRole::Guardian)->create(['school_id' => $this->school->id]);
+        if ($withGuardian !== null) {
+            // حساب `users` يُنشأ عند أوّل تسجيل دخول بالـ OTP، فوليّ أمر
+            // مُدخَل ولم يفتح التطبيق بعد يبقى بلا user_id.
+            $user = $withGuardian
+                ? User::factory()->role(UserRole::Guardian)->create(['school_id' => $this->school->id])
+                : null;
             $guardian = Guardian::factory()->create([
                 'school_id' => $this->school->id,
-                'user_id' => $user->id,
+                'user_id' => $user?->id,
+                'phone' => '+96395555'.str_pad((string) ++$this->phones, 4, '0', STR_PAD_LEFT),
             ]);
             StudentGuardian::factory()->create([
                 'student_id' => $student->id,
@@ -176,9 +184,40 @@ class FeeReminderTest extends TestCase
         $this->assertSame(0, Notification::where('type', 'fee_due')->count());
     }
 
+    public function test_a_guardian_who_never_signed_in_is_reported_separately(): void
+    {
+        // أُدخل اسمه ورقمه ولم يفتح تطبيق الأهالي بعد: حالتُه تُتابَع
+        // بمكالمة، لا بإدخال وليّ أمرٍ جديد. خلطها بالحالة الأخرى يُخفي
+        // الفرق عن المدرسة.
+        $student = $this->student('ابن غير المسجِّل', withGuardian: false);
+        $this->plan($student, 1_000_000);
+
+        $response = $this->postJson('/api/fees/reminders', [
+            'student_ids' => [$student->id],
+        ])->assertOk();
+
+        $this->assertSame(0, $response->json('data.sent'));
+        $this->assertSame(['ابن غير المسجِّل تجريبي'], $response->json('data.not_signed_in'));
+        $this->assertSame([], $response->json('data.without_guardian'));
+    }
+
+    public function test_the_pending_contact_phone_is_listed_for_follow_up(): void
+    {
+        $student = $this->student('ابن غير المسجِّل', withGuardian: false);
+        $this->plan($student, 1_000_000);
+
+        // الرقم يُعرَض حتى يُتّصل به، لا ليُقال إنّ هناك مشكلة فقط.
+        $contacts = $this->getJson('/api/fees/reminders?days=30')
+            ->assertOk()
+            ->json('data.0.pending_contacts');
+
+        $this->assertCount(1, $contacts);
+        $this->assertStringContainsString('+96395555', $contacts[0]);
+    }
+
     public function test_a_student_without_a_guardian_is_reported_not_counted(): void
     {
-        $student = $this->student('يتيم الحساب', withGuardian: false);
+        $student = $this->student('يتيم الحساب', withGuardian: null);
         $this->plan($student, 1_000_000);
 
         $response = $this->postJson('/api/fees/reminders', [
@@ -188,5 +227,6 @@ class FeeReminderTest extends TestCase
         // إخفاء هؤلاء يجعل المدرسة تظنّ أنها طالبت وهي لم تفعل.
         $this->assertSame(0, $response->json('data.sent'));
         $this->assertSame(['يتيم الحساب تجريبي'], $response->json('data.without_guardian'));
+        $this->assertSame([], $response->json('data.not_signed_in'));
     }
 }
