@@ -40,4 +40,5 @@ return [
     'fee_due_title' => 'Installment due: :name',
     'fee_due_body' => 'Due on :date — remaining :amount.',
     'fee_overdue_body' => 'Overdue since :date — remaining :amount.',
+    'fee_reminder_body' => 'Reminder: :amount remains on your child account.',
 ];

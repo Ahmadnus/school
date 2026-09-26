@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\ConversationController;
 use App\Http\Controllers\Api\DeviceTokenController;
 use App\Http\Controllers\Api\FeePaymentController;
 use App\Http\Controllers\Api\FeePlanController;
+use App\Http\Controllers\Api\FeeReminderController;
 use App\Http\Controllers\Api\FeeTypeController;
 use App\Http\Controllers\Api\GateAttendanceController;
 use App\Http\Controllers\Api\GradeController;
@@ -197,6 +198,10 @@ Route::middleware('auth:sanctum')->group(function () {
         ->only(['index', 'store', 'destroy']);
 
     Route::get('fees/summary', [FeePlanController::class, 'summary']);
+
+    // تذكير المتأخّرين: القائمة تُعرَض أوّلاً ثم يُرسل المستخدم لمن اختار.
+    Route::get('fees/reminders', [FeeReminderController::class, 'index']);
+    Route::post('fees/reminders', [FeeReminderController::class, 'store']);
     Route::get('students/{student}/fee-plans', [FeePlanController::class, 'forStudent']);
     Route::get('students/{student}/fee-statement', [FeePlanController::class, 'statement']);
     Route::put('fee-plans/{fee_plan}/installments', [FeePlanController::class, 'updateInstallments']);

@@ -40,4 +40,5 @@ return [
     'fee_due_title' => 'قسط مستحقّ: :name',
     'fee_due_body' => 'يستحقّ بتاريخ :date — المتبقّي :amount.',
     'fee_overdue_body' => 'تأخّر منذ :date — المتبقّي :amount.',
+    'fee_reminder_body' => 'تذكير: المتبقّي على حساب ابنكم :amount ل.س.',
 ];

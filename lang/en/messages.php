@@ -281,4 +281,5 @@ return [
         'no_hours' => 'Set the day hours before assigning subjects.',
         'saved' => 'Schedule saved.',
     ],
+    'fee_reminder' => ['sent' => 'Reminder sent to :count guardians.'],
 ];
