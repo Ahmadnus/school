@@ -200,24 +200,41 @@ class AttendanceGradeSectionTest extends TestCase
 
     // ------------------------------------------------------- authorization
 
-    /** معلّمٌ لا يدرّس الشعبة لا يقرأ كشفها: فيه أسماء الطلاب وغياباتهم. */
-    public function test_a_teacher_cannot_read_the_sheet_of_a_section_they_do_not_teach(): void
+    /**
+     * قراءة الكشف تبقى لكل من في المدرسة — صلاحية `view` كما كانت.
+     *
+     * شُدّدت مرّةً إلى `takeAttendance`، فتبيّن على الإنتاج أنّ الإسنادات صفر
+     * فصار كل معلّم ممنوعاً من كل كشف. صلاحيات المعلّم القائمة تُصان، والحفظ
+     * وحده هو المحروس.
+     */
+    public function test_a_teacher_may_still_read_the_sheet_of_any_section_in_their_school(): void
     {
         Sanctum::actingAs($this->teacher);
 
         $this->getJson("/api/sections/{$this->eleventhA->id}/attendance")
-            ->assertForbidden();
+            ->assertOk();
     }
 
-    /** ولا يسجّل فيها. */
+    /**
+     * لكنّه لا يسجّل فيها — وهذا هو الحدّ الحقيقي، وكان قائماً قبل هذا العمل.
+     *
+     * و٤٠٣ لا ٤٢٢: الصلاحية تُفحَص قبل البيانات، فلا تُفشي رسالة التحقّق «هل
+     * الطالب مسجَّل في هذه الشعبة» لمن لا يحقّ له أن يعرف.
+     */
     public function test_a_teacher_cannot_save_attendance_for_a_section_they_do_not_teach(): void
     {
         Sanctum::actingAs($this->teacher);
 
-        $this->postJson("/api/sections/{$this->eleventhA->id}/attendance", [
+        $response = $this->postJson("/api/sections/{$this->eleventhA->id}/attendance", [
             'date' => now()->toDateString(),
             'records' => [['student_id' => $this->ninthStudent->id, 'status' => 'absent']],
         ])->assertForbidden();
+
+        $this->assertStringNotContainsString(
+            'enrolled',
+            $response->getContent(),
+            'an unauthorized teacher must not learn enrolment facts from the error',
+        );
     }
 
     /** والمعلّم يقرأ كشف شعبته هو. */

@@ -16,18 +16,19 @@ class AttendanceSheetRequest extends FormRequest
     /**
      * الصلاحية تُفحَص **قبل** التحقّق من البيانات.
      *
-     * لارافيل ينادي `authorize()` قبل `rules()`، وهذا مقصود هنا: بلا هذه
-     * الدالّة كان فحص «الطالب في هذه الشعبة؟» يسبق فحص الصلاحية، فيتعلّم
-     * معلّمٌ يجرّب شعبةً لا يدرّسها **هل الطالب مسجَّل فيها** من رسالة الخطأ،
-     * قبل أن يُقال له إنه غير مُصرَّح له. القاعدة نفسها تبقى في السياسة؛
-     * المتغيّر متى تُسأل.
+     * لارافيل ينادي `authorize()` قبل `rules()`، وهذا مقصود: بلا هذه الدالّة
+     * يسبق فحصُ البيانات فحصَ الصلاحية، فتُفشي رسالة الخطأ ما لا يحقّ للسائل.
+     * القاعدة نفسها تبقى في السياسة؛ المتغيّر **متى** تُسأل.
+     *
+     * و`view` هي صلاحية القراءة كما كانت قبل هذا العمل — الحفظ وحده على
+     * `takeAttendance` (انظر `StoreAttendanceRequest`).
      */
     public function authorize(): bool
     {
         $section = $this->route('section');
 
         return $section !== null
-            && $this->user()?->can('takeAttendance', $section) === true;
+            && $this->user()?->can('view', $section) === true;
     }
 
     public function rules(): array
