@@ -67,6 +67,24 @@ class User extends Authenticatable
         return $this->hasMany(TeacherAssignment::class, 'staff_id');
     }
 
+    /**
+     * متى يستطيع هذا الأستاذ أن يُدرّس — مدًى لكل قطعة متّصلة في كل يوم.
+     *
+     * يومٌ بلا صفٍّ هنا يومٌ غير متفرّغ فيه. وهذا **غير** دوام المعهد
+     * (`school_day_hours`) وغير دوام الشعبة (`section_day_hours`): المولّد
+     * يأخذ تقاطُع الثلاثة.
+     */
+    public function availability(): HasMany
+    {
+        return $this->hasMany(TeacherAvailability::class, 'staff_id');
+    }
+
+    /** حصص هذا الأستاذ في الجدول المولَّد — ما يراه في تطبيقه. */
+    public function scheduleSlots(): HasMany
+    {
+        return $this->hasMany(ScheduleSlot::class, 'staff_id');
+    }
+
     public function taughtSubjects(): BelongsToMany
     {
         return $this->belongsToMany(Subject::class, 'teacher_assignments', 'staff_id', 'subject_id')

@@ -48,4 +48,29 @@ class SectionPolicy
         return $user->role === UserRole::Teacher
             && $user->teacherAssignments()->where('section_id', $section->id)->exists();
     }
+
+    /**
+     * قراءة جدول حصص شعبة.
+     *
+     * أوسع من `takeAttendance` بقصد: معلّم الشعبة يحتاج أن يعرف ما قبل حصّته
+     * وما بعدها، والمشرف يحتاج جدول شعبته كلّه. ولا يفتح ذلك جداول الشعب
+     * الأخرى لمن لا شأن له بها.
+     */
+    public function viewTimetable(User $user, Section $section): bool
+    {
+        if (! $this->belongsToSchoolOf($user, $section->grade->school_id)) {
+            return false;
+        }
+
+        if ($user->role->isAdministrative()) {
+            return true;
+        }
+
+        if ($user->supervisedSections()->whereKey($section->id)->exists()) {
+            return true;
+        }
+
+        return $user->role === UserRole::Teacher
+            && $user->teacherAssignments()->where('section_id', $section->id)->exists();
+    }
 }

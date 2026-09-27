@@ -67,4 +67,29 @@ class TeacherAssignmentController extends Controller
 
         return response()->json(['message' => __('messages.assignment.deleted')]);
     }
+
+    /**
+     * يضبط عدد حصص الإسناد في الأسبوع — خطوة «مراجعة الإسنادات» قبل التوليد.
+     *
+     * منفصلٌ عن إنشاء الإسناد: من يراجع الجدول قبل توليده يصحّح أعداداً على
+     * إسنادات قائمة، ولا ينشئها من جديد. وإفراغ الحقل يُرجعه إلى ما على
+     * المادة بدل أن يصير صفراً — والصفر يُسقط المادة من الجدول صامتاً.
+     */
+    public function update(Request $request, TeacherAssignment $assignment): JsonResponse
+    {
+        $this->authorize('update', $assignment);
+
+        $data = $request->validate([
+            'lessons_per_week' => ['present', 'nullable', 'integer', 'min:1', 'max:40'],
+        ]);
+
+        $assignment->update(['lessons_per_week' => $data['lessons_per_week']]);
+
+        return response()->json([
+            'message' => __('timetable.messages.assignment_updated'),
+            'data' => new TeacherAssignmentResource(
+                $assignment->fresh(['teacher', 'subject.grade', 'section.grade']),
+            ),
+        ]);
+    }
 }

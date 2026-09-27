@@ -10,6 +10,8 @@ return [
     'absence_threshold_body' => ':count unexcused absences this year (:section, last on :date).',
     'grade_published_title' => ':name\'s grade — :subject',
     'grade_published_body' => ':assessment: :score out of :max.',
+    'tasmi_recorded_title' => 'Recitation for :name — :subject',
+    'tasmi_recorded_body' => 'Your child received :score/:max in :subject recitation on :date.',
     'grade_summary_title' => ':subject grades — :section',
     'grade_summary_body' => 'Marked :count · average :average · highest :highest of :max',
     'below_pass' => ':count below the pass mark',

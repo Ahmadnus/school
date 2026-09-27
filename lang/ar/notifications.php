@@ -10,6 +10,8 @@ return [
     'absence_threshold_body' => ':count أيام غياب بلا عذر هذه السنة (:section، آخرها :date).',
     'grade_published_title' => 'درجة :name — :subject',
     'grade_published_body' => ':assessment: :score من :max.',
+    'tasmi_recorded_title' => 'تسميع :name — :subject',
+    'tasmi_recorded_body' => 'حصل ابنكم على :score من :max في تسميع :subject بتاريخ :date.',
     'grade_summary_title' => 'علامات :subject — :section',
     'grade_summary_body' => 'صُحِّح :count · المعدّل :average · الأعلى :highest من :max',
     'below_pass' => ':count تحت علامة النجاح',

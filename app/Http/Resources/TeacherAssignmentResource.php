@@ -19,6 +19,10 @@ class TeacherAssignmentResource extends JsonResource
             'section' => new SectionResource($this->whenLoaded('section')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
+            'lessons_per_week' => $this->lessonsPerWeek(),
+            // هل الرقم مكتوب على الإسناد نفسه، أم موروث من المادة؟ الشاشة
+            // تعرض الفرق حتى يعرف المدير ما ضُبط فعلاً وما هو افتراض.
+            'lessons_per_week_explicit' => $this->lessons_per_week !== null,
         ];
     }
 }

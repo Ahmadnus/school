@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\ReportCardController;
 use App\Http\Controllers\Api\RubricController;
 use App\Http\Controllers\Api\ScheduleSlotController;
 use App\Http\Controllers\Api\SchoolController;
+use App\Http\Controllers\Api\SchoolHoursController;
 use App\Http\Controllers\Api\SectionController;
 use App\Http\Controllers\Api\SectionScheduleController;
 use App\Http\Controllers\Api\StudentController;
@@ -43,8 +44,11 @@ use App\Http\Controllers\Api\StudentNoteController;
 use App\Http\Controllers\Api\StudentProfileController;
 use App\Http\Controllers\Api\SubjectController;
 use App\Http\Controllers\Api\SupervisorScopeController;
+use App\Http\Controllers\Api\TasmiController;
 use App\Http\Controllers\Api\TeacherAssignmentController;
+use App\Http\Controllers\Api\TeacherAvailabilityController;
 use App\Http\Controllers\Api\TermController;
+use App\Http\Controllers\Api\TimetableController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserPreferenceController;
 use Illuminate\Support\Facades\Route;
@@ -154,8 +158,40 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- Subjects and teacher assignments (§2.3) ---
     Route::apiResource('subjects', SubjectController::class);
     Route::apiResource('teacher-assignments', TeacherAssignmentController::class)
-        ->only(['index', 'store', 'destroy'])
+        ->only(['index', 'store', 'update', 'destroy'])
         ->parameters(['teacher-assignments' => 'assignment']);
+
+    // ================= الجدول المولَّد =================
+    //
+    // ثلاث طبقات قيود منفصلة، ولكلٍّ مساره — وفصلها في المسارات نفسها مقصود
+    // حتى لا تُخلَط في الشاشة:
+    //
+    //   دوام المعهد   `school/hours`            — الحدّ الخارجي، ومن يضبطه الإدارة.
+    //   دوام الشعبة   `sections/{s}/hours`      — قائم أصلاً، يضيّق دوام المعهد.
+    //   تفرّغ الأستاذ  `users/{u}/availability`  — شبكة نصف ساعة، يضبطها صاحبها.
+    //
+    // وطول الحصّة شيء رابع مستقلّ: `school/lesson-minutes`.
+
+    Route::get('school/hours', [SchoolHoursController::class, 'show']);
+    Route::put('school/hours', [SchoolHoursController::class, 'update']);
+    Route::delete('school/hours', [SchoolHoursController::class, 'destroy']);
+    Route::put('school/lesson-minutes', [SchoolHoursController::class, 'setLessonMinutes']);
+
+    Route::get('users/{user}/availability', [TeacherAvailabilityController::class, 'show']);
+    Route::put('users/{user}/availability', [TeacherAvailabilityController::class, 'update']);
+    Route::delete('users/{user}/availability', [TeacherAvailabilityController::class, 'destroy']);
+
+    // `me` و`all` قبل `{user}` و`{section}` حتى لا يبتلعها معرّف.
+    Route::get('timetable/mine', [TimetableController::class, 'mine']);
+    Route::get('timetable/all', [TimetableController::class, 'all']);
+    Route::get('timetable/latest', [TimetableController::class, 'latest']);
+    Route::post('timetable/analyze', [TimetableController::class, 'analyze']);
+    Route::post('timetable/generate', [TimetableController::class, 'generate']);
+    Route::delete('timetable/generated', [TimetableController::class, 'clear']);
+    Route::get('timetable/teachers/{user}', [TimetableController::class, 'forTeacher']);
+    Route::get('timetable/sections/{section}', [TimetableController::class, 'forSection']);
+    // التعديل اليدويّ — يُفحَص قبل الحفظ، ولا يُقبل تعارضٌ صلب.
+    Route::put('timetable/slots/{slot}', [TimetableController::class, 'move']);
 
     // --- Assessment setup and grade entry (§2.3) ---
     Route::post('assessment-types/reorder', [AssessmentTypeController::class, 'reorder']);
@@ -169,6 +205,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('assessments/{assessment}/sections', [GradeScoreController::class, 'sections']);
     Route::get('assessments/{assessment}/scores', [GradeScoreController::class, 'index']);
     Route::post('assessments/{assessment}/scores', [GradeScoreController::class, 'store']);
+
+    // --- التسميع: نوع تقييم لبعض طلاب الشعبة لا كلّهم ---
+    // `roster` قبل `{assessment}` حتى لا يبتلعها معرّف الجلسة.
+    Route::get('tasmi/roster', [TasmiController::class, 'roster']);
+    Route::get('tasmi', [TasmiController::class, 'index']);
+    Route::post('tasmi', [TasmiController::class, 'store']);
+    Route::get('tasmi/{assessment}', [TasmiController::class, 'show']);
+    Route::delete('tasmi/{assessment}', [TasmiController::class, 'destroy']);
 
     // --- Attendance (§2.4) ---
     Route::get('sections/{section}/attendance', [AttendanceController::class, 'sheet']);

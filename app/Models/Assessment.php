@@ -15,9 +15,11 @@ class Assessment extends Model
 
     protected $fillable = [
         'subject_id',
+        'section_id',
         'assessment_type_id',
         'name',
         'held_on',
+        'created_by',
         'max_score',
         'weight_percent',
     ];
@@ -40,6 +42,23 @@ class Assessment extends Model
     public function subject(): BelongsTo
     {
         return $this->belongsTo(Subject::class);
+    }
+
+    /**
+     * الشعبة التي أُقيم فيها التقييم، أو `null` لتقييمٍ يعمّ الصفّ كلّه.
+     *
+     * `null` هي حال كل التقييمات القائمة: المادة للصفّ، والتقييم كان يُقام
+     * له كلّه. والتسميع أضاف الحاجة — تسميع «التاسع أ» ليس تسميع «التاسع ب».
+     */
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(Section::class);
+    }
+
+    /** من أقام الجلسة — لا من كتب الدرجة (ذاك `grades_scores.entered_by`). */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function type(): BelongsTo

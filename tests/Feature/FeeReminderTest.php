@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Enums\FeePlanStatus;
+use App\Enums\NotificationApp;
 use App\Enums\UserRole;
 use App\Models\AcademicYear;
 use App\Models\FeePayment;
@@ -9,6 +11,7 @@ use App\Models\FeePlan;
 use App\Models\Guardian;
 use App\Models\Notification;
 use App\Models\School;
+use App\Models\SchoolNotificationSetting;
 use App\Models\Student;
 use App\Models\StudentGuardian;
 use App\Models\User;
@@ -228,5 +231,196 @@ class FeeReminderTest extends TestCase
         $this->assertSame(0, $response->json('data.sent'));
         $this->assertSame(['يتيم الحساب تجريبي'], $response->json('data.without_guardian'));
         $this->assertSame([], $response->json('data.not_signed_in'));
+    }
+
+    // ------------------------------------------ تقرير التسليم: خمس حالات مفصولة
+
+    /**
+     * من سدّد بين العرض والإرسال يُعلَن «لم يبقَ عليه شيء»، لا يُتخطّى صامتاً.
+     *
+     * كان يُسقَط بلا ذكر، فيقرأ المدير «أُرسل ٣» ويظنّ أنّ الرابع وصله. وسببُ
+     * تخطّيه خبرٌ سارّ — سدّد — يستحقّ أن يُقال لا أن يُخفى.
+     */
+    public function test_a_student_who_paid_before_sending_is_reported_as_no_longer_due(): void
+    {
+        $paid = $this->student('وفيق');
+        $plan = $this->plan($paid, 100_000, 10_000, Carbon::today()->subDays(60)->toDateString());
+
+        $owing = $this->student('ناجي');
+        $this->plan($owing, 100_000);
+
+        $this->assertEqualsCanonicalizing(
+            ['وفيق تجريبي', 'ناجي تجريبي'],
+            $this->candidates(),
+        );
+
+        // سدّد الباقي بعد أن عُرضت القائمة.
+        FeePayment::factory()->create([
+            'school_id' => $this->school->id,
+            'fee_plan_id' => $plan->id,
+            'amount_minor' => 90_000,
+            'paid_on' => Carbon::today()->toDateString(),
+        ]);
+
+        $this->postJson('/api/fees/reminders', [
+            'student_ids' => [$paid->id, $owing->id],
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.sent', 1)
+            ->assertJsonPath('data.no_longer_due', ['وفيق تجريبي'])
+            ->assertJsonPath('data.failed', []);
+
+        // ولا إشعار له.
+        $this->assertSame(0, Notification::query()->where('ref_id', $paid->id)->count());
+    }
+
+    /** ومن أُغلق مفتاحه لا يُحسَب مُرسَلاً: يُعلَن في «فشل». */
+    public function test_a_blocked_notification_is_reported_as_failed_not_sent(): void
+    {
+        $student = $this->student('مروان');
+        $this->plan($student, 100_000);
+
+        SchoolNotificationSetting::factory()->create([
+            'school_id' => $this->school->id,
+            'app' => NotificationApp::Guardian,
+            'key' => 'fee_due',
+            'group' => 'fees',
+            'is_enabled' => false,
+        ]);
+
+        $this->postJson('/api/fees/reminders', ['student_ids' => [$student->id]])
+            ->assertOk()
+            ->assertJsonPath('data.sent', 0)
+            ->assertJsonPath('data.failed', ['مروان تجريبي']);
+
+        $this->assertSame(0, Notification::query()->where('type', 'fee_due')->count());
+    }
+
+    /** والحالات الخمس كلّها حاضرة في الردّ، ولو كانت فارغة. */
+    public function test_the_result_always_reports_all_five_outcomes(): void
+    {
+        $student = $this->student('سالم');
+        $this->plan($student, 100_000);
+
+        $this->postJson('/api/fees/reminders', ['student_ids' => [$student->id]])
+            ->assertOk()
+            ->assertJsonStructure([
+                'data' => [
+                    'sent',
+                    'not_signed_in',
+                    'without_guardian',
+                    'no_longer_due',
+                    'failed',
+                ],
+            ]);
+    }
+
+    /** واسم وليّ الأمر يُعرَض في الصفّ — المدير يقرأ الاسم لا العدد. */
+    public function test_the_candidate_row_carries_the_guardian_name(): void
+    {
+        $student = $this->student('هاني');
+        $this->plan($student, 100_000);
+
+        $row = collect($this->getJson('/api/fees/reminders?days=30')->assertOk()->json('data'))
+            ->firstWhere('student_name', 'هاني تجريبي');
+
+        $this->assertNotNull($row);
+        $this->assertCount(1, $row['guardian_names']);
+        $this->assertNotEmpty($row['guardian_names'][0]);
+    }
+
+    /** والصفّ يحمل ما يقرأه المدير ليقرّر: المتبقّي وآخر دفعة ومدّة التأخّر. */
+    public function test_the_candidate_row_carries_the_information_needed_to_decide(): void
+    {
+        $student = $this->student('فادي');
+        $this->plan($student, 100_000, 10_000, Carbon::today()->subDays(45)->toDateString());
+
+        $row = collect($this->getJson('/api/fees/reminders?days=30')->assertOk()->json('data'))
+            ->firstWhere('student_name', 'فادي تجريبي');
+
+        $this->assertNotNull($row);
+        $this->assertSame('90000.00', $row['remaining']);
+        $this->assertSame(Carbon::today()->subDays(45)->toDateString(), $row['last_payment_on']);
+        $this->assertSame(45, $row['days_since']);
+    }
+
+    /** وخيار «شهر» هو الافتراض: ثلاثون يوماً. */
+    public function test_one_month_is_the_default_period(): void
+    {
+        $student = $this->student('زياد');
+        $this->plan($student, 100_000, 10_000, Carbon::today()->subDays(40)->toDateString());
+
+        $recent = $this->student('بشار');
+        $this->plan($recent, 100_000, 10_000, Carbon::today()->subDays(10)->toDateString());
+
+        // بلا وسيط `days` أصلاً.
+        $names = array_column(
+            $this->getJson('/api/fees/reminders')->assertOk()->json('data'),
+            'student_name',
+        );
+
+        $this->assertContains('زياد تجريبي', $names);
+        $this->assertNotContains('بشار تجريبي', $names);
+        $this->assertSame(30, $this->getJson('/api/fees/reminders')->json('meta.days'));
+    }
+
+    /** والمُدَد الثلاث كلّها تعمل: أسبوعان وشهر وشهران. */
+    public function test_all_three_periods_filter_correctly(): void
+    {
+        $twenty = $this->student('عشرون');
+        $this->plan($twenty, 100_000, 10_000, Carbon::today()->subDays(20)->toDateString());
+
+        $forty = $this->student('أربعون');
+        $this->plan($forty, 100_000, 10_000, Carbon::today()->subDays(40)->toDateString());
+
+        $seventy = $this->student('سبعون');
+        $this->plan($seventy, 100_000, 10_000, Carbon::today()->subDays(70)->toDateString());
+
+        // أسبوعان: الثلاثة.
+        $this->assertEqualsCanonicalizing(
+            ['عشرون تجريبي', 'أربعون تجريبي', 'سبعون تجريبي'],
+            $this->candidates(14),
+        );
+
+        // شهر: من تجاوز الثلاثين.
+        $this->assertEqualsCanonicalizing(
+            ['أربعون تجريبي', 'سبعون تجريبي'],
+            $this->candidates(30),
+        );
+
+        // شهران: الأقدم وحده.
+        $this->assertSame(['سبعون تجريبي'], $this->candidates(60));
+    }
+
+    /** وخطة ملغاة لا تدخل القائمة ولا يُرسَل لصاحبها. */
+    public function test_a_cancelled_plan_is_excluded_from_both_list_and_send(): void
+    {
+        $student = $this->student('ملغى');
+        $plan = $this->plan($student, 100_000);
+        $plan->forceFill(['status' => FeePlanStatus::Cancelled])->save();
+
+        $this->assertNotContains('ملغى تجريبي', $this->candidates());
+
+        $this->postJson('/api/fees/reminders', ['student_ids' => [$student->id]])
+            ->assertOk()
+            ->assertJsonPath('data.sent', 0)
+            ->assertJsonPath('data.no_longer_due', ['ملغى تجريبي']);
+
+        $this->assertSame(0, Notification::query()->where('type', 'fee_due')->count());
+    }
+
+    /** ومن فُتحت خطّته اليوم لا يُطالَب غداً. */
+    public function test_a_brand_new_plan_is_not_overdue_immediately(): void
+    {
+        $student = $this->student('جديد');
+
+        // خطة اليوم — بلا إزاحة `created_at` إلى الماضي.
+        FeePlan::factory()->create([
+            'student_id' => $student->id,
+            'academic_year_id' => $this->year->id,
+            'total_minor' => 100_000,
+        ]);
+
+        $this->assertNotContains('جديد تجريبي', $this->candidates(30));
     }
 }

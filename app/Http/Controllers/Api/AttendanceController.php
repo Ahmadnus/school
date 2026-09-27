@@ -6,6 +6,7 @@ use App\Enums\AttendanceSessionStatus;
 use App\Enums\AttendanceSource;
 use App\Enums\AttendanceStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Attendance\AttendanceSheetRequest;
 use App\Http\Requests\Attendance\StoreAttendanceRequest;
 use App\Http\Resources\AttendanceRecordResource;
 use App\Http\Resources\AttendanceSessionResource;
@@ -28,9 +29,13 @@ class AttendanceController extends Controller
      * The roll-call sheet: the section roster for a day, each student's status
      * so far, the session state, and the four-state summary bar.
      */
-    public function sheet(Request $request, Section $section): JsonResponse
+    public function sheet(AttendanceSheetRequest $request, Section $section): JsonResponse
     {
-        $this->authorize('view', $section);
+        // `takeAttendance` لا `view`: الكشف شاشةُ تسجيلٍ لا عرضٍ عامّ. و`view`
+        // تسمح لكل من في المدرسة، فكان معلّمٌ يفتح كشف شعبةٍ لا يدرّسها ويرى
+        // أسماء طلابها وغياباتهم. من يستطيع التسجيل هو من يستطيع القراءة:
+        // الإدارة، ومشرفو الشعبة، ومعلّموها وحدهم.
+        $this->authorize('takeAttendance', $section);
 
         $date = $request->date('date')?->toDateString() ?? now()->toDateString();
 

@@ -8,6 +8,7 @@ use App\Models\FeePlan;
 use App\Models\Student;
 use App\Services\FeeReminderCandidates;
 use App\Services\NotificationGate;
+use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -53,18 +54,26 @@ class FeeReminderController extends Controller
         $sent = 0;
         $notSignedIn = [];
         $withoutGuardian = [];
+        // من كان مستحقّاً حين عُرضت القائمة ثم سدّد قبل الضغط على «إرسال».
+        // كان يُتخطّى صامتاً، فيظنّ المدير أنّ التذكير وصله وهو لم يُرسَل —
+        // ولا يعرف أنّ السبب سدادُه، وهو خبرٌ سارّ يستحقّ أن يُقال.
+        $noLongerDue = [];
+        // وما فشل إرساله لعطلٍ تقنيّ: لا يُحسَب مُرسَلاً ولا يُخفى.
+        $failed = [];
 
         foreach ($students as $student) {
             $remaining = $student->feePlans
                 ->reject(fn (FeePlan $plan) => $plan->status->value === 'cancelled')
                 ->reduce(
                     fn ($carry, FeePlan $plan) => $carry->plus($plan->remainingAmount()),
-                    \App\Support\Money::zero(),
+                    Money::zero(),
                 );
 
             // يُعاد الحساب عند الإرسال لا يُؤخذ من الشاشة: قد يكون الأب
             // سدّد بين فتح القائمة والضغط على «إرسال».
             if (! $remaining->isPositive()) {
+                $noLongerDue[] = $student->full_name;
+
                 continue;
             }
 
@@ -85,18 +94,36 @@ class FeeReminderController extends Controller
             }
 
             foreach ($recipients as $guardian) {
-                NotificationGate::notify(
-                    $guardian->user,
-                    'fee_due',
-                    __('notifications.fee_due_title', ['name' => $student->full_name]),
-                    trim(
-                        __('notifications.fee_reminder_body', [
-                            'amount' => (string) $remaining->toDecimal(),
-                        ]).' '.($data['note'] ?? ''),
-                    ),
-                    $student->id,
-                    NotificationApp::Guardian,
-                );
+                try {
+                    $notification = NotificationGate::notify(
+                        $guardian->user,
+                        'fee_due',
+                        __('notifications.fee_due_title', ['name' => $student->full_name]),
+                        trim(
+                            __('notifications.fee_reminder_body', [
+                                'amount' => (string) $remaining->toDecimal(),
+                            ]).' '.($data['note'] ?? ''),
+                        ),
+                        $student->id,
+                        NotificationApp::Guardian,
+                    );
+                } catch (\Throwable $e) {
+                    // إرسالٌ فاشل لا يُسكَت عنه ولا يُسقِط بقيّة القائمة:
+                    // عشرون أباً لا يُمنعون من تذكيرهم لأن واحداً تعطّل.
+                    report($e);
+                    $failed[] = $student->full_name;
+
+                    continue;
+                }
+
+                // البوّابة تُعيد `null` إن أغلقت المدرسة المفتاح أو أغلقه
+                // وليّ الأمر. لا سجلّ ولا دفعة، فلا يُحسَب إرسالاً.
+                if ($notification === null) {
+                    $failed[] = $student->full_name;
+
+                    continue;
+                }
+
                 $sent++;
             }
         }
@@ -109,6 +136,8 @@ class FeeReminderController extends Controller
                 // المدرسة تظنّ أنها طالبت وهي لم تفعل.
                 'not_signed_in' => $notSignedIn,
                 'without_guardian' => $withoutGuardian,
+                'no_longer_due' => array_values(array_unique($noLongerDue)),
+                'failed' => array_values(array_unique($failed)),
             ],
         ]);
     }
