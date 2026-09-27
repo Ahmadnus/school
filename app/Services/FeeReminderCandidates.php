@@ -27,7 +27,7 @@ class FeeReminderCandidates
      *     student_id:int, student_name:string, placement:?string,
      *     total:string, paid:string, remaining:string,
      *     last_payment_on:?string, days_since:int, guardians:int,
-     *     pending_contacts:list<string>
+     *     guardian_names:list<string>, pending_contacts:list<string>
      * }>
      */
     public static function for(int $schoolId, int $days = 30): Collection
@@ -84,6 +84,13 @@ class FeeReminderCandidates
                     'guardians' => $student->guardians
                         ->filter(fn ($guardian) => $guardian->user !== null)
                         ->count(),
+                    // الأسماء لا العدد: المدير يقرأ الصفّ ليقرّر، و«له وليّان»
+                    // لا تقول له من سيصله التذكير. والاسم هو ما يعرفه به.
+                    'guardian_names' => $student->guardians
+                        ->filter(fn ($guardian) => $guardian->user !== null)
+                        ->map(fn ($guardian) => $guardian->name)
+                        ->values()
+                        ->all(),
                     // تُعرَض أرقامهم لا عددهم: المدير يحتاج أن يتّصل بهم أو
                     // يرسل لهم رابط التطبيق، لا أن يُخبَر أنّ هناك مشكلة.
                     'pending_contacts' => $student->guardians

@@ -51,4 +51,25 @@ class Term extends Model
             $this->forceFill(['is_current' => true])->save();
         });
     }
+
+    /**
+     * فصل المدرسة الجاري — أو أوّل فصولها إن لم يُوسَم واحد.
+     *
+     * التراجع إلى الأوّل مقصود، وهو نفس ما يفعله `StudentSubjects`: مدرسةٌ
+     * أنشأت فصولها ونسيت أن تُعلن الجاري منها ليست مدرسةً بلا فصل. وبلا هذا
+     * التراجع كان توليد الجدول يرفض العمل بسبب خانةٍ لم يؤشّرها أحد.
+     */
+    public static function currentFor(int $schoolId): ?self
+    {
+        $year = AcademicYear::currentFor($schoolId);
+
+        if ($year === null) {
+            return null;
+        }
+
+        $terms = static::query()->where('academic_year_id', $year->id);
+
+        return (clone $terms)->current()->first()
+            ?? (clone $terms)->orderBy('start_date')->first();
+    }
 }

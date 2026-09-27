@@ -9,6 +9,7 @@ return [
     'excuse_reviewed' => 'مراجعة عذر غياب',
     'grade_published' => 'نشر درجة',
     'grade_summary' => 'كشف علامات الشعبة',
+    'tasmi_recorded' => 'درجة تسميع',
     'honor_board' => 'لوحة الشرف',
     'report_card_published' => 'نشر كشف درجات',
     'assessment_created' => 'إنشاء تقييم',

@@ -8,6 +8,7 @@ return [
     'excuse_submitted' => 'New absence excuse',
     'excuse_reviewed' => 'Absence excuse reviewed',
     'grade_summary' => 'Section grade sheet',
+    'tasmi_recorded' => 'Recitation mark',
     'honor_board' => 'Honour board',
     'grade_published' => 'Grade published',
     'report_card_published' => 'Report card published',

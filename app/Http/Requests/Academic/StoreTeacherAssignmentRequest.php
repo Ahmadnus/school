@@ -38,6 +38,10 @@ class StoreTeacherAssignmentRequest extends FormRequest
                     ->where('staff_id', $this->input('staff_id'))
                     ->where('subject_id', $this->input('subject_id')),
             ],
+            // عدد حصص هذا الإسناد في الأسبوع — ما يجدوله المولّد.
+            // `null` مقصود: «خُذ ما على المادة» (`subjects.periods_per_week`)،
+            // فالإسنادات القائمة تبقى صحيحة بلا أن يُدخل أحدٌ رقماً لها.
+            'lessons_per_week' => ['nullable', 'integer', 'min:1', 'max:40'],
         ];
     }
 }

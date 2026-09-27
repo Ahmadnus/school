@@ -22,6 +22,7 @@ class ScheduleSlot extends Model
         'ends_at',
         'period_number',
         'room',
+        'timetable_run_id',
     ];
 
     protected function casts(): array
@@ -50,6 +51,28 @@ class ScheduleSlot extends Model
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'staff_id');
+    }
+
+    /**
+     * المحاولة التي ولّدت هذه الحصّة، أو `null` لحصّةٍ بناها المستخدم بيده.
+     *
+     * الفرق يحمي جدولاً قائماً: إعادة التوليد تحذف المولَّد وحده.
+     */
+    public function timetableRun(): BelongsTo
+    {
+        return $this->belongsTo(TimetableRun::class);
+    }
+
+    /** ما ولّده المولّد — ما تحذفه إعادة التوليد. */
+    public function scopeGenerated(Builder $query): Builder
+    {
+        return $query->whereNotNull('timetable_run_id');
+    }
+
+    /** ما بناه المستخدم بيده — ما لا تلمسه إعادة التوليد أبداً. */
+    public function scopeManual(Builder $query): Builder
+    {
+        return $query->whereNull('timetable_run_id');
     }
 
     public function scopeOfSchool(Builder $query, int $schoolId): Builder

@@ -139,6 +139,7 @@ return [
         'saved' => 'Attendance saved.',
         'submitted' => 'Attendance submitted.',
         'not_in_section' => 'This student is not enrolled in that section this year.',
+        'section_not_in_grade' => 'That section does not belong to the selected grade.',
         'already_submitted' => 'Attendance for this day was already submitted.',
     ],
     'excuse' => [
@@ -282,4 +283,12 @@ return [
         'saved' => 'Schedule saved.',
     ],
     'fee_reminder' => ['sent' => 'Reminder sent to :count guardians.'],
+    'tasmi' => [
+        'saved' => 'Recitation saved for :count students.',
+        'deleted' => 'The recitation session was deleted.',
+        'section_missing' => 'That section does not exist.',
+        'section_not_in_grade' => "That section does not belong to this subject's grade.",
+        'student_not_in_section' => 'This student is not enrolled in that section this year.',
+        'score_above_max' => 'The mark cannot be higher than :max.',
+    ],
 ];

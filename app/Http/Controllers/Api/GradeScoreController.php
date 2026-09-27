@@ -47,12 +47,21 @@ class GradeScoreController extends Controller
         return response()->json([
             'data' => [
                 'assessment' => new AssessmentResource($assessment),
-                'rows' => $students->map(fn (Student $student) => [
-                    'student' => new StudentResource($student),
-                    'score' => $scores->has($student->id)
-                        ? new GradeScoreResource($scores[$student->id])
-                        : null,
-                ])->values(),
+                // `score` رقمٌ مجرَّد لا كائن. كان يحمل `GradeScoreResource`
+                // كاملاً، فيقرؤه حقل الإدخال في التطبيق نصّاً فيظهر للأستاذ
+                // `{id: 41, assessment_id: 3, score: 85.00, ...}` مكان «85».
+                // والسجلّ كلّه يبقى متاحاً في `record`، على غرار كشف الحضور.
+                'rows' => $students->map(function (Student $student) use ($scores) {
+                    $score = $scores->get($student->id);
+
+                    return [
+                        'student' => new StudentResource($student),
+                        // بلا الأصفار الزائدة: خزانة `decimal:2` تُعيد "85.00"،
+                        // والأستاذ كتب «85» فيجب أن يرى «85».
+                        'score' => self::plainScore($score?->score),
+                        'record' => $score ? new GradeScoreResource($score) : null,
+                    ];
+                })->values(),
             ],
         ]);
     }
@@ -104,5 +113,24 @@ class GradeScoreController extends Controller
         return response()->json([
             'data' => SectionResource::collection($sections),
         ]);
+    }
+
+    /**
+     * الدرجة كما يجب أن تظهر في حقل الإدخال: رقمٌ بلا أصفار عشرية زائدة.
+     *
+     * تُعاد نصّاً لا float: `85.5` تبقى `"85.5"`، و`85.00` تصير `"85"`، ولا
+     * يتدخّل تمثيل العائم في ما يقرؤه الأستاذ.
+     */
+    private static function plainScore(mixed $score): ?string
+    {
+        if ($score === null) {
+            return null;
+        }
+
+        $text = (string) $score;
+
+        return str_contains($text, '.')
+            ? rtrim(rtrim($text, '0'), '.')
+            : $text;
     }
 }

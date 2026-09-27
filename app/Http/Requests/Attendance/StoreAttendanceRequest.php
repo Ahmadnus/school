@@ -13,10 +13,30 @@ use Illuminate\Validation\Rule;
  */
 class StoreAttendanceRequest extends FormRequest
 {
+    /**
+     * الصلاحية تُفحَص **قبل** التحقّق من البيانات.
+     *
+     * لارافيل ينادي `authorize()` قبل `rules()`، وهذا مقصود هنا: بلا هذه
+     * الدالّة كان فحص «الطالب في هذه الشعبة؟» يسبق فحص الصلاحية، فيتعلّم
+     * معلّمٌ يجرّب شعبةً لا يدرّسها **هل الطالب مسجَّل فيها** من رسالة الخطأ،
+     * قبل أن يُقال له إنه غير مُصرَّح له. القاعدة نفسها تبقى في السياسة؛
+     * المتغيّر متى تُسأل.
+     */
+    public function authorize(): bool
+    {
+        $section = $this->route('section');
+
+        return $section !== null
+            && $this->user()?->can('takeAttendance', $section) === true;
+    }
+
     public function rules(): array
     {
         return [
             'date' => ['required', 'date'],
+            // اختياريّ، لكنّه إن أُرسل فُحص: الشاشة تختار الصفّ ثمّ الشعبة،
+            // والخادم يحرس القيد نفسه بدل أن يثق بالترتيب في الواجهة.
+            'grade_id' => ['nullable', 'integer'],
             'records' => ['required', 'array', 'min:1'],
             'records.*.student_id' => ['required', 'distinct', 'integer'],
             'records.*.status' => ['required', Rule::enum(AttendanceStatus::class)],
@@ -28,6 +48,9 @@ class StoreAttendanceRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             $section = $this->route('section');
+
+            SectionBelongsToGrade::check($validator, $section, $this->input('grade_id'));
+
             $ids = collect($this->input('records', []))->pluck('student_id')->filter()->all();
 
             if ($ids === []) {

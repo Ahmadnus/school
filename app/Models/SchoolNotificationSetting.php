@@ -25,6 +25,9 @@ class SchoolNotificationSetting extends Model
         // كشف الشعبة إلى المشرفين والإدارة — مفتاح مستقل عن علامة الطالب
         // الواحد، حتى تستطيع مدرسة إبقاء إشعار الأهل وإيقاف كشف الكادر.
         ['key' => 'grade_summary', 'group' => 'academic'],
+        // التسميع مفتاح مستقلّ عن نشر الدرجات: هو خبر يوميّ صغير، ومدرسةٌ
+        // قد تريده وتُغلق كشف العلامات، أو العكس.
+        ['key' => 'tasmi_recorded', 'group' => 'academic'],
         ['key' => 'report_card_published', 'group' => 'academic'],
         ['key' => 'assessment_created', 'group' => 'academic'],
         ['key' => 'honor_board', 'group' => 'academic'],
