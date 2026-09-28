@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ConversationController extends Controller
 {
@@ -91,6 +92,14 @@ class ConversationController extends Controller
                 $request->input('type'),
                 $request->integer('student_id') ?: null,
             );
+        }
+
+        // طرفٌ واحد يعني خيطاً لا يراه أحد غير منشئه. كان يُحفظ صامتاً فيظنّ
+        // المرسِل أنّه أرسل — طالبٌ بلا وليّ أمر مسجَّل مثلاً. فليُقَل صريحاً.
+        if ($requested->isEmpty()) {
+            throw ValidationException::withMessages([
+                'participant_ids' => __('messages.conversation.no_recipient'),
+            ]);
         }
 
         $ids = $requested
