@@ -2,19 +2,18 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Models\Guardian;
 use App\Models\GuardianOtp;
 use App\Models\User;
 use App\Rules\PhoneNumber;
+use App\Services\GuardianAccount;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -124,29 +123,12 @@ class GuardianAuthController extends Controller
 
         $guardian = Guardian::query()->where('phone', $data['phone'])->firstOrFail();
 
+        // الإنشاء في {@see GuardianAccount}: الحساب يلزم عند الدخول وعند
+        // المراسلة سواءً، ونسختان منه تفترقان عند أوّل تعديل.
         $user = DB::transaction(function () use ($guardian, $otp) {
             $otp->update(['consumed_at' => now()]);
 
-            if ($guardian->user_id !== null) {
-                return $guardian->user;
-            }
-
-            // First sign-in: the account is created from the guardian record.
-            $names = preg_split('/\s+/', trim($guardian->name), 2);
-
-            $user = User::create([
-                'school_id' => $guardian->school_id,
-                'first_name' => $names[0] ?? $guardian->name,
-                'last_name' => $names[1] ?? null,
-                'phone' => $guardian->phone,
-                'role' => UserRole::Guardian,
-                // No password: this account signs in by code only.
-                'password' => Hash::make(Str::random(40)),
-            ]);
-
-            $guardian->update(['user_id' => $user->id]);
-
-            return $user;
+            return GuardianAccount::for($guardian);
         });
 
         // Same shape as staff login (`token` at the top level, `data` the
