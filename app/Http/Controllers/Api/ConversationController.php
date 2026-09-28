@@ -34,7 +34,11 @@ class ConversationController extends Controller
         $conversations = Conversation::query()
             ->ofSchool($request->user()->school_id)
             ->forUser($request->user()->id)
-            ->when($request->filled('type'), fn ($q) => $q->where('type', $request->string('type')))
+            // التبويب يُقرأ بالأطراف لا بالعمود وحده — {@see Conversation::scopeInTab}.
+            ->when(
+                ConversationType::tryFrom((string) $request->string('type')),
+                fn ($q, ConversationType $tab) => $q->inTab($tab),
+            )
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             // Follow-up workflow chips (staff).
             ->when($request->boolean('needs_follow_up'), fn ($q) => $q->where('needs_follow_up', true))

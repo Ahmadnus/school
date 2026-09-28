@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Casts\DateOnly;
 use App\Enums\ConversationStatus;
 use App\Enums\ConversationType;
+use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -110,6 +111,42 @@ class Conversation extends Model
     public function scopeForUser(Builder $query, int $userId): Builder
     {
         return $query->whereHas('participantRecords', fn (Builder $q) => $q->where('user_id', $userId));
+    }
+
+    /**
+     * تبويب **الكادر**: خيوط الموظّفين وحدهم.
+     *
+     * النوع وحده لا يكفي حَكَماً: `type` يصل من العميل، فخيطٌ يفتحه وليّ أمر
+     * وهو على تبويب الكادر يُخزَّن `staff` ويظهر بين محادثات الموظّفين
+     * الداخلية. فالفصل هنا بالأطراف — من في الخيط وليُّ أمر فليس خيط كادر،
+     * مهما قال العمود. وهذا يصحّح الصفوف القديمة بلا ترحيل.
+     */
+    public function scopeStaffThreads(Builder $query): Builder
+    {
+        return $query
+            ->where('type', ConversationType::Staff)
+            ->whereDoesntHave('participants', fn (Builder $q) => $q->where('role', UserRole::Guardian));
+    }
+
+    /**
+     * تبويب **الأهالي**: كل خيط فيه وليّ أمر، ولو خُزِّن `staff` خطأً.
+     *
+     * متمّمٌ لـ`staffThreads` بالضبط: لا خيط يسقط بين التبويبين ولا خيط
+     * يظهر فيهما معاً.
+     */
+    public function scopeGuardianThreads(Builder $query): Builder
+    {
+        return $query->where(fn (Builder $q) => $q
+            ->where('type', ConversationType::Guardians)
+            ->orWhereHas('participants', fn (Builder $p) => $p->where('role', UserRole::Guardian)));
+    }
+
+    /** يوجّه الخيط إلى تبويبه الصحيح. */
+    public function scopeInTab(Builder $query, ConversationType $tab): Builder
+    {
+        return $tab === ConversationType::Staff
+            ? $query->staffThreads()
+            : $query->guardianThreads();
     }
 
     /**
