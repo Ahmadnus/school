@@ -41,6 +41,20 @@ class ConversationResource extends JsonResource
                 (bool) $me,
                 fn () => $this->unreadCountFor($me->id),
             ),
+            // أسماء الطرف الآخر — منها يسمّي التطبيق المحادثة كما في واتساب:
+            // بالأشخاص لا بعنوانٍ كتبه أحدهم مرّة. تُحسب هنا لأنّ الخادم وحده
+            // يعرف من «أنا»، فلا يحتاج العميل أن يرشّح نفسه من القائمة.
+            'counterparts' => $this->when(
+                $this->relationLoaded('participants') && (bool) $me,
+                fn () => $this->participants
+                    ->where('id', '!=', $me->id)
+                    ->map(fn ($user) => [
+                        'id' => $user->id,
+                        'full_name' => $user->full_name,
+                        'role_label' => $user->role->label(),
+                    ])
+                    ->values(),
+            ),
             'student' => new StudentResource($this->whenLoaded('student')),
             'participants' => UserResource::collection($this->whenLoaded('participants')),
             'last_message' => new MessageResource($this->whenLoaded('lastMessage')),

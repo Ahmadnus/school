@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Enums\ConversationStatus;
 use App\Enums\ConversationType;
 use App\Enums\NotificationApp;
+use App\Enums\Status;
+use App\Enums\UserRole;
 use App\Events\MessageSent;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Message\StoreConversationRequest;
@@ -14,11 +16,13 @@ use App\Http\Resources\ConversationResource;
 use App\Http\Resources\MessageResource;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\Student;
 use App\Models\User;
 use App\Services\NotificationGate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -54,7 +58,7 @@ class ConversationController extends Controller
                         ->where('first_name', 'like', $term)
                         ->orWhere('last_name', 'like', $term)));
             })
-            ->with(['student', 'participantRecords', 'lastMessage'])
+            ->with(['student', 'participants', 'participantRecords', 'lastMessage'])
             ->withUnreadCountFor($request->user()->id)
             ->orderByDesc('last_message_at')
             ->paginate($request->integer('per_page', 20))
@@ -71,7 +75,24 @@ class ConversationController extends Controller
         $user = $request->user();
 
         // الأطراف المقصودون: المفتِح دائماً منهم.
-        $ids = collect($request->input('participant_ids', []))
+        //
+        // ومحادثة الأهالي لا تسأل عن مستلم: هي بين وليّ الأمر والمدرسة، فطرفها
+        // الآخر يُستنتَج — وليُّ الأمر يكتب فيصل الإداريّون، والموظّف يكتب
+        // فيصل أولياء أمر الطالب. بلا هذا كانت تُحفظ بمشاركٍ واحد هو منشئها
+        // فلا يراها أحد غيره.
+        $requested = collect($request->input('participant_ids', []))
+            ->filter()
+            ->map(fn ($id) => (int) $id);
+
+        if ($requested->isEmpty()) {
+            $requested = $this->defaultCounterparts(
+                $user,
+                $request->input('type'),
+                $request->integer('student_id') ?: null,
+            );
+        }
+
+        $ids = $requested
             ->push($user->id)
             ->unique()
             ->sort()
@@ -100,9 +121,11 @@ class ConversationController extends Controller
             $message = DB::transaction(function () use ($existing, $request, $user) {
                 $message = $existing->messages()->create([
                     'sender_id' => $user->id,
-                    'body' => $request->input('body'),
+                    'body' => (string) $request->input('body', ''),
                     'sent_at' => now(),
                 ]);
+
+                $this->storeAttachments($request, $message, $existing->school_id);
 
                 $existing->update(['last_message_at' => now()]);
 
@@ -114,7 +137,9 @@ class ConversationController extends Controller
             return response()->json([
                 'message' => __('messages.message.sent'),
                 'data' => new ConversationResource(
-                    $existing->fresh(['student', 'participants', 'participantRecords', 'lastMessage']),
+                    $existing->fresh([
+                        'student', 'participants', 'participantRecords', 'lastMessage.attachments',
+                    ]),
                 ),
             ]);
         }
@@ -137,9 +162,11 @@ class ConversationController extends Controller
 
             $message = $conversation->messages()->create([
                 'sender_id' => $user->id,
-                'body' => $request->input('body'),
+                'body' => (string) $request->input('body', ''),
                 'sent_at' => now(),
             ]);
+
+            $this->storeAttachments($request, $message, $conversation->school_id);
 
             return [$conversation, $message];
         });
@@ -151,7 +178,9 @@ class ConversationController extends Controller
         return response()->json([
             'message' => __('messages.conversation.created'),
             'data' => new ConversationResource(
-                $conversation->load(['student', 'participants', 'participantRecords', 'lastMessage']),
+                $conversation->load([
+                    'student', 'participants', 'participantRecords', 'lastMessage.attachments',
+                ]),
             ),
         ], 201);
     }
@@ -211,16 +240,7 @@ class ConversationController extends Controller
             // Files travel in the same request, so the live broadcast and the
             // notification already know about them (a second upload call
             // would reach the other side before its attachments existed).
-            foreach ($request->file('files', []) as $file) {
-                $message->attachments()->create([
-                    'school_id' => $conversation->school_id,
-                    'path' => $file->store('attachments/message', 'public'),
-                    'name' => $file->getClientOriginalName(),
-                    'mime' => $file->getMimeType(),
-                    'size' => $file->getSize(),
-                    'uploaded_by' => $request->user()->id,
-                ]);
-            }
+            $this->storeAttachments($request, $message, $conversation->school_id);
 
             $conversation->update(['last_message_at' => $message->sent_at]);
 
@@ -248,6 +268,68 @@ class ConversationController extends Controller
             'message' => __('messages.message.sent'),
             'data' => new MessageResource($message),
         ], 201);
+    }
+
+    /**
+     * ملفّات الرسالة — في الطلب نفسه لا في نداءٍ ثانٍ.
+     *
+     * الرفع المنفصل كان يصل قبل أن توجد مرفقاته، فيرى الطرف الآخر رسالةً
+     * فارغة ثم تظهر الصورة بعدها.
+     */
+    private function storeAttachments(Request $request, Message $message, int $schoolId): void
+    {
+        foreach ($request->file('files', []) as $file) {
+            $message->attachments()->create([
+                'school_id' => $schoolId,
+                'path' => $file->store('attachments/message', 'public'),
+                'name' => $file->getClientOriginalName(),
+                'mime' => $file->getMimeType(),
+                'size' => $file->getSize(),
+                'uploaded_by' => $request->user()->id,
+            ]);
+        }
+    }
+
+    /**
+     * الطرف الآخر في محادثة أهالي لم يُسمَّ فيها مستلم.
+     *
+     * وليُّ الأمر يكتب إلى **المكتب**: الإداريّون النشطون، لأنّهم من يوزّع
+     * المراسلة ويحوّلها؛ ولو أُرسلت إلى أساتذة الطالب كلّهم صارت كلُّ رسالة
+     * إشعاراً لستّة أشخاص.
+     *
+     * والموظّف يكتب عن طالب: فأولياء أمره أصحاب الحسابات هم الطرف.
+     *
+     * محادثة الكادر لا تدخل هنا — لها منتقي مستلمين صريح في التطبيق.
+     *
+     * @return Collection<int, int>
+     */
+    private function defaultCounterparts(User $user, ?string $type, ?int $studentId)
+    {
+        if ($type !== ConversationType::Guardians->value) {
+            return collect();
+        }
+
+        if ($user->role->isGuardian()) {
+            return User::query()
+                ->where('school_id', $user->school_id)
+                ->whereIn('role', [UserRole::Admin, UserRole::SuperAdmin])
+                ->where('status', Status::Active)
+                ->pluck('id');
+        }
+
+        if ($studentId === null) {
+            return collect();
+        }
+
+        return Student::query()
+            ->whereKey($studentId)
+            ->where('school_id', $user->school_id)
+            ->first()
+            ?->guardians
+            ->pluck('user_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->values() ?? collect();
     }
 
     /**
