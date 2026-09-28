@@ -25,7 +25,12 @@ class StoreConversationRequest extends FormRequest
             'title' => ['nullable', 'string', 'max:255'],
             'participant_ids' => ['nullable', 'array'],
             'participant_ids.*' => [Rule::exists('users', 'id')->where('school_id', $schoolId)],
-            'body' => ['required', 'string', 'max:10000'],
+            // الرسالة الافتتاحية نصٌّ أو ملفات أو كلاهما — لا فراغ.
+            // نفس قاعدة `StoreMessageRequest`: من يفتح خيطاً بصورةٍ وحدها
+            // كان يُضطرّ أن يكتب حرفاً ثم يرفق في رسالةٍ ثانية.
+            'body' => ['nullable', 'string', 'max:10000', 'required_without:files'],
+            'files' => ['nullable', 'array', 'max:5'],
+            'files.*' => ['file', 'max:10240'],
         ];
     }
 
