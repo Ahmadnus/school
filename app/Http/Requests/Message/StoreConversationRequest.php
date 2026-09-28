@@ -44,6 +44,25 @@ class StoreConversationRequest extends FormRequest
     public function after(): array
     {
         return [function (Validator $validator): void {
+            $ids = array_filter((array) $this->input('participant_ids', []));
+
+            // وليُّ الأمر يراسل المدرسة، لا أولياء الأمور الآخرين: دليل
+            // الأهالي أسماءُ عائلاتٍ وأرقامها، ولا يُفتح لبعضهم على بعض.
+            if ($this->user()->role->isGuardian() && $ids !== []) {
+                $otherGuardian = User::query()
+                    ->whereIn('id', $ids)
+                    ->where('role', UserRole::Guardian)
+                    ->whereKeyNot($this->user()->id)
+                    ->exists();
+
+                if ($otherGuardian) {
+                    $validator->errors()->add(
+                        'participant_ids',
+                        __('messages.conversation.guardian_to_guardian'),
+                    );
+                }
+            }
+
             if ($this->input('type') !== ConversationType::Staff->value) {
                 return;
             }
@@ -53,8 +72,6 @@ class StoreConversationRequest extends FormRequest
 
                 return;
             }
-
-            $ids = array_filter((array) $this->input('participant_ids', []));
 
             if ($ids === []) {
                 return;

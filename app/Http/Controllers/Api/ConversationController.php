@@ -18,6 +18,7 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Student;
 use App\Models\User;
+use App\Services\GuardianAccount;
 use App\Services\NotificationGate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -321,15 +322,19 @@ class ConversationController extends Controller
             return collect();
         }
 
-        return Student::query()
+        $student = Student::query()
             ->whereKey($studentId)
             ->where('school_id', $user->school_id)
-            ->first()
-            ?->guardians
-            ->pluck('user_id')
-            ->filter()
-            ->map(fn ($id) => (int) $id)
-            ->values() ?? collect();
+            ->with('guardians')
+            ->first();
+
+        if ($student === null) {
+            return collect();
+        }
+
+        // الحساب يُنشأ عند الحاجة: وليُّ أمرٍ لم يدخل التطبيق بعد لا حساب له،
+        // وكان الخيط يُحفظ حينها بمشاركٍ واحد فلا يصل إليه ولا يُشعَر.
+        return GuardianAccount::idsFor($student->guardians);
     }
 
     /**
