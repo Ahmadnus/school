@@ -224,6 +224,7 @@ return [
         'read' => 'Conversation marked as read.',
         'closed' => 'This conversation is closed.',
         'staff_only' => 'Staff conversations are for staff members only.',
+        'no_recipient' => 'This conversation has no recipient. The student may have no registered guardian.',
         'guardian_to_guardian' => 'You can message staff; messaging other guardians is not available.',
         'guardian_in_staff_thread' => 'A guardian cannot be added to a staff conversation.',
     ],

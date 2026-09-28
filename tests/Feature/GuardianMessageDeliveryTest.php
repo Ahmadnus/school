@@ -171,6 +171,22 @@ class GuardianMessageDeliveryTest extends TestCase
         ])->assertStatus(422)->assertJsonValidationErrors('participant_ids');
     }
 
+    public function test_a_student_with_no_guardian_is_refused_not_saved_silently(): void
+    {
+        $orphan = Student::factory()->create(['school_id' => $this->school->id]);
+
+        Sanctum::actingAs($this->teacher);
+
+        // كان يُحفظ خيطٌ بمشاركٍ واحد فيظنّ المرسِل أنّه أرسل.
+        $this->postJson('/api/conversations', [
+            'type' => 'guardians',
+            'student_id' => $orphan->id,
+            'body' => 'مرحباً',
+        ])->assertStatus(422)->assertJsonValidationErrors('participant_ids');
+
+        $this->assertDatabaseCount('conversations', 0);
+    }
+
     public function test_an_existing_guardian_account_is_reused_not_duplicated(): void
     {
         $existing = User::factory()->role(UserRole::Guardian)->create([
