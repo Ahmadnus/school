@@ -31,6 +31,12 @@ class ConversationResource extends JsonResource
             'follow_up_note' => $this->follow_up_note,
             'is_muted' => $mine?->is_muted ?? false,
             'last_read_at' => $mine?->last_read_at,
+            // علامة «قُرئت» للطرف الآخر: أقدم وقتٍ قرأ فيه كلّ من عداي.
+            // منها يرسم التطبيق ✓✓ على رسائلي التي أُرسلت قبله.
+            'others_last_read_at' => $this->when(
+                $this->relationLoaded('participantRecords') && (bool) $me,
+                fn () => $this->othersReadWatermark($me->id),
+            ),
             'unread_count' => $this->when(
                 (bool) $me,
                 fn () => $this->unreadCountFor($me->id),

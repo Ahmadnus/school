@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 
 class Conversation extends Model
 {
@@ -118,6 +119,40 @@ class Conversation extends Model
      * `participantRecords` لكل المحادثات باستعلام واحد، ثم كان هذا السطر يسأل
      * عنها مرّة أخرى لكل محادثة — استعلامان لكل صفّ في قائمة تُفتح كل دقيقة.
      */
+    /**
+     * أقدم لحظة قرأ فيها **كل** الأطراف الآخرين — علامة «قُرئت» في واتساب.
+     *
+     * الأدنى مقصود: الرسالة لا تُعدّ مقروءة حتى يقرأها كلّ من في المحادثة
+     * عداي. فإن لم يفتحها أحدهم بعد (`last_read_at` فارغ) فالعلامة فارغة —
+     * لا يُدّعى أنها قُرئت، كما يرفض النظام ادّعاء «سُلّمت» لأنّ شيئاً لا
+     * يُثبتها. ورسالتي تظهر «قُرئت» إن كان وقت إرسالها <= هذه العلامة.
+     */
+    public function othersReadWatermark(int $meId): ?Carbon
+    {
+        $others = $this->relationLoaded('participantRecords')
+            ? $this->participantRecords->where('user_id', '!=', $meId)
+            : $this->participantRecords()->where('user_id', '!=', $meId)->get();
+
+        if ($others->isEmpty()) {
+            return null;
+        }
+
+        $watermark = null;
+
+        foreach ($others as $participant) {
+            // أحدهم لم يفتح المحادثة بعد: لا تُدّعى القراءة.
+            if ($participant->last_read_at === null) {
+                return null;
+            }
+
+            if ($watermark === null || $participant->last_read_at->lt($watermark)) {
+                $watermark = $participant->last_read_at;
+            }
+        }
+
+        return $watermark;
+    }
+
     public function unreadCountFor(int $userId): int
     {
         // محمّل مع القائمة؟ فلا داعي لسؤال قاعدة البيانات مرّة أخرى.
