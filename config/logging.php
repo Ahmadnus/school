@@ -50,12 +50,29 @@ return [
     |
     */
 
+    /**
+     * حدّ «الطلب البطيء» بالميلي — ما تجاوزه يُسجَّل وحده.
+     *
+     * ألفُ ميلي هي العتبة التي يبدأ عندها المستخدم يشعر بالانتظار. وصفرٌ
+     * يُطفئ المراقبة كلّها.
+     */
+    'slow_request_ms' => (int) env('SLOW_REQUEST_MS', 1000),
+
     'channels' => [
 
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),
             'ignore_exceptions' => false,
+        ],
+
+        // الطلبات البطيئة في ملفٍّ مستقلّ: مخلوطةً بسجلّ التطبيق لا تُرى.
+        'slow' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/slow.log'),
+            'level' => 'warning',
+            'days' => (int) env('SLOW_REQUEST_DAYS', 14),
+            'replace_placeholders' => true,
         ],
 
         'single' => [
