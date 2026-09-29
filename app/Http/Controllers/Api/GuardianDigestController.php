@@ -21,6 +21,7 @@ use App\Services\StudentSignals;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -33,6 +34,9 @@ use Illuminate\Support\Facades\Schema;
  */
 class GuardianDigestController extends Controller
 {
+    /** عمر كتلة الأبناء في الكاش — قصيرٌ عمداً: حضورُ اليوم يُسجَّل أثناء الدوام. */
+    private const CHILDREN_CACHE_SECONDS = 120;
+
     public function show(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -133,8 +137,23 @@ class GuardianDigestController extends Controller
             ])->values(),
         ];
 
-        $data = $children->map(function (Student $child) use (
-            $weekRecords, $excused, $behavior, $installments, $today, $weekAhead
+        // كتلة الأبناء وحدها تُخزَّن مؤقّتاً.
+        //
+        // كل ابنٍ يكلّف سبعةً وعشرين استعلاماً: حضورُ سنته، وتقويمُ أسبوعه،
+        // وإشاراتُه ورسومه. والمجموع لا يبطئ طلباً واحداً (ثمانية وعشرون
+        // ميلي)، لكنّه يضرب القاعدة بمئاتٍ حين يفتح مئةُ وليّ أمر التطبيق
+        // صباحاً معاً — وهذا ما رصدته القياسات: أبطأ مسارٍ تحت الحمل وحده.
+        //
+        // والمخزَّن ما يتحرّك ببطء (حضور، رسوم، إشارات) دون ما يتحرّك بسرعة:
+        // المنشورات غير المقروءة والمحادثات المفتوحة ولوحة الشرف تبقى حيّةً
+        // تُحسب في كل طلب، فلا يرى وليُّ الأمر عدّاداً متجمّداً.
+        //
+        // والمفتاح يحمل اليوم وأرقام الأبناء: يتغيّر بتغيّر أيّهما، فلا يبقى
+        // ملخّصُ أمسٍ ولا يغيب ابنٌ أُضيف.
+        $cacheKey = 'guardian-digest:children:'.$user->id.':'.$today.':'.$ids->implode('-');
+
+        $data = Cache::remember($cacheKey, self::CHILDREN_CACHE_SECONDS, fn () => $children->map(function (Student $child) use (
+            $request, $weekRecords, $excused, $behavior, $installments, $today, $weekAhead
         ) {
             $rows = $weekRecords->where('student_id', $child->id);
             $week = ['present' => 0, 'late' => 0, 'absent' => 0, 'excused' => 0, 'recorded' => $rows->count()];
@@ -174,7 +193,8 @@ class GuardianDigestController extends Controller
             ))->reject(fn (array $e) => $e['type'] === 'period')
                 ->take(6)
                 ->map(fn (array $e) => ['type' => $e['type'], 'date' => $e['date'], 'title' => $e['title']])
-                ->values();
+                ->values()
+                ->all();
 
             $signals = StudentSignals::forStudent($child, $child->school, includeFees: true);
 
@@ -184,16 +204,18 @@ class GuardianDigestController extends Controller
             }
 
             return [
-                'student' => new StudentResource($child),
+                // يُحلّ إلى مصفوفة قبل التخزين: نموذجٌ مُسلسَل في الكاش يُعاد
+                // بناؤه ناقصاً، والمصفوفة هي ما يخرج إلى العميل أصلاً.
+                'student' => (new StudentResource($child))->resolve($request),
                 'attendance_week' => $week,
                 'attendance_rate_year' => $yearSummary['effective_rate'],
                 'next_installment' => $nextInstallment,
                 'upcoming' => $upcoming,
                 'recent_behavior_shared' => (int) ($behavior[$child->id] ?? 0),
                 'signal_level' => $signals['level'],
-                'attention_items' => $attention->unique()->values(),
+                'attention_items' => $attention->unique()->values()->all(),
             ];
-        })->values();
+        })->values()->all());
 
         return response()->json([
             'data' => [
