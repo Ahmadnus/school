@@ -4,10 +4,11 @@ namespace Database\Factories;
 
 use App\Enums\FeePlanStatus;
 use App\Models\AcademicYear;
+use App\Models\FeePlan;
 use App\Models\Student;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\FeePlan> */
+/** @extends Factory<FeePlan> */
 class FeePlanFactory extends Factory
 {
     public function definition(): array

@@ -2,10 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Models\FeePayment;
 use App\Models\FeePlan;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\FeePayment> */
+/** @extends Factory<FeePayment> */
 class FeePaymentFactory extends Factory
 {
     public function definition(): array

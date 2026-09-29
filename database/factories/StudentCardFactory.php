@@ -3,9 +3,10 @@
 namespace Database\Factories;
 
 use App\Models\Student;
+use App\Models\StudentCard;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\StudentCard> */
+/** @extends Factory<StudentCard> */
 class StudentCardFactory extends Factory
 {
     public function definition(): array

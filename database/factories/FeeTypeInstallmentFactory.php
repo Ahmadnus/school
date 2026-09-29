@@ -3,9 +3,10 @@
 namespace Database\Factories;
 
 use App\Models\FeeType;
+use App\Models\FeeTypeInstallment;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\FeeTypeInstallment> */
+/** @extends Factory<FeeTypeInstallment> */
 class FeeTypeInstallmentFactory extends Factory
 {
     public function definition(): array

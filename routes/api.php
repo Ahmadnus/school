@@ -274,6 +274,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // --- Messaging (§2.6) ---
     Route::get('conversations/types', [ConversationController::class, 'types']);
+    Route::get('conversations/complaint-categories', [ConversationController::class, 'complaintCategories']);
     Route::get('conversations/{conversation}/messages', [ConversationController::class, 'messages']);
     Route::post('conversations/{conversation}/messages', [ConversationController::class, 'sendMessage']);
     Route::post('conversations/{conversation}/read', [ConversationController::class, 'markRead']);

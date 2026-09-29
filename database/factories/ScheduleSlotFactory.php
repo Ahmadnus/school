@@ -3,12 +3,13 @@
 namespace Database\Factories;
 
 use App\Enums\Weekday;
+use App\Models\ScheduleSlot;
 use App\Models\Section;
 use App\Models\Subject;
 use App\Models\Term;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\ScheduleSlot> */
+/** @extends Factory<ScheduleSlot> */
 class ScheduleSlotFactory extends Factory
 {
     public function definition(): array

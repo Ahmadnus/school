@@ -2,10 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Models\Holiday;
 use App\Models\School;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\Holiday> */
+/** @extends Factory<Holiday> */
 class HolidayFactory extends Factory
 {
     public function definition(): array

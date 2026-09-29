@@ -2,10 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Models\AcademicYear;
 use App\Models\School;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\AcademicYear> */
+/** @extends Factory<AcademicYear> */
 class AcademicYearFactory extends Factory
 {
     public function definition(): array

@@ -6,9 +6,10 @@ use App\Enums\ImportStatus;
 use App\Models\AcademicYear;
 use App\Models\School;
 use App\Models\Section;
+use App\Models\StudentImport;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\StudentImport> */
+/** @extends Factory<StudentImport> */
 class StudentImportFactory extends Factory
 {
     public function definition(): array

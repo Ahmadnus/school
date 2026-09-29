@@ -3,10 +3,11 @@
 namespace Database\Factories;
 
 use App\Models\Assessment;
+use App\Models\GradeScore;
 use App\Models\Student;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\GradeScore> */
+/** @extends Factory<GradeScore> */
 class GradeScoreFactory extends Factory
 {
     public function definition(): array

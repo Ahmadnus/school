@@ -3,10 +3,11 @@
 namespace Database\Factories;
 
 use App\Enums\Status;
+use App\Models\Guardian;
 use App\Models\School;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\Guardian> */
+/** @extends Factory<Guardian> */
 class GuardianFactory extends Factory
 {
     public function definition(): array

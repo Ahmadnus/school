@@ -3,10 +3,11 @@
 namespace Database\Factories;
 
 use App\Enums\AttachmentOwner;
+use App\Models\Attachment;
 use App\Models\School;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\Attachment> */
+/** @extends Factory<Attachment> */
 class AttachmentFactory extends Factory
 {
     public function definition(): array

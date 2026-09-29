@@ -4,10 +4,11 @@ namespace Database\Factories;
 
 use App\Enums\GradingMethod;
 use App\Models\Grade;
+use App\Models\Subject;
 use App\Models\Term;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\Subject> */
+/** @extends Factory<Subject> */
 class SubjectFactory extends Factory
 {
     public function definition(): array

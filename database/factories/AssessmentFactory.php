@@ -2,11 +2,12 @@
 
 namespace Database\Factories;
 
+use App\Models\Assessment;
 use App\Models\AssessmentType;
 use App\Models\Subject;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\Assessment> */
+/** @extends Factory<Assessment> */
 class AssessmentFactory extends Factory
 {
     public function definition(): array

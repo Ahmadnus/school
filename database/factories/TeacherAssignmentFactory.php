@@ -5,10 +5,11 @@ namespace Database\Factories;
 use App\Enums\UserRole;
 use App\Models\Section;
 use App\Models\Subject;
+use App\Models\TeacherAssignment;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\TeacherAssignment> */
+/** @extends Factory<TeacherAssignment> */
 class TeacherAssignmentFactory extends Factory
 {
     public function definition(): array

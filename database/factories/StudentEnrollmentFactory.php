@@ -6,9 +6,10 @@ use App\Enums\EnrollmentScope;
 use App\Enums\EnrollmentStatus;
 use App\Models\Section;
 use App\Models\Student;
+use App\Models\StudentEnrollment;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\StudentEnrollment> */
+/** @extends Factory<StudentEnrollment> */
 class StudentEnrollmentFactory extends Factory
 {
     public function definition(): array

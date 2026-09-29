@@ -5,9 +5,10 @@ namespace Database\Factories;
 use App\Enums\Gender;
 use App\Enums\Status;
 use App\Models\School;
+use App\Models\Student;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\Student> */
+/** @extends Factory<Student> */
 class StudentFactory extends Factory
 {
     public function definition(): array

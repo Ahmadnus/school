@@ -3,10 +3,11 @@
 namespace Database\Factories;
 
 use App\Enums\ExcuseStatus;
+use App\Models\AbsenceExcuse;
 use App\Models\Student;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\AbsenceExcuse> */
+/** @extends Factory<AbsenceExcuse> */
 class AbsenceExcuseFactory extends Factory
 {
     public function definition(): array

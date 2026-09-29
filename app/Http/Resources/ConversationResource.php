@@ -55,6 +55,13 @@ class ConversationResource extends JsonResource
                     ])
                     ->values(),
             ),
+            // موضوع الشكوى — أحدهما فارغ دائماً.
+            'about_staff' => $this->when($this->about_staff_id !== null, fn () => [
+                'id' => $this->about_staff_id,
+                'full_name' => $this->aboutStaff?->full_name,
+            ]),
+            'complaint_category' => $this->complaint_category?->value,
+            'complaint_category_label' => $this->complaint_category?->label(),
             'student' => new StudentResource($this->whenLoaded('student')),
             'participants' => UserResource::collection($this->whenLoaded('participants')),
             'last_message' => new MessageResource($this->whenLoaded('lastMessage')),

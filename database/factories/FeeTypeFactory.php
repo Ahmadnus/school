@@ -3,10 +3,11 @@
 namespace Database\Factories;
 
 use App\Enums\Status;
+use App\Models\FeeType;
 use App\Models\School;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\FeeType> */
+/** @extends Factory<FeeType> */
 class FeeTypeFactory extends Factory
 {
     public function definition(): array

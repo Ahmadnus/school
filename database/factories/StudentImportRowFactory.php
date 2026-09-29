@@ -4,9 +4,10 @@ namespace Database\Factories;
 
 use App\Enums\ImportRowStatus;
 use App\Models\StudentImport;
+use App\Models\StudentImportRow;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\StudentImportRow> */
+/** @extends Factory<StudentImportRow> */
 class StudentImportRowFactory extends Factory
 {
     public function definition(): array

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Message;
 
+use App\Enums\ComplaintCategory;
 use App\Enums\ConversationType;
 use App\Enums\UserRole;
 use App\Models\User;
@@ -23,6 +24,12 @@ class StoreConversationRequest extends FormRequest
                 Rule::exists('students', 'id')->where('school_id', $schoolId),
             ],
             'title' => ['nullable', 'string', 'max:255'],
+            // موضوع الشكوى: أستاذٌ بعينه أو بابٌ من الخدمات — واحدٌ لا اثنان.
+            'about_staff_id' => [
+                'nullable',
+                Rule::exists('users', 'id')->where('school_id', $schoolId),
+            ],
+            'complaint_category' => ['nullable', Rule::enum(ComplaintCategory::class)],
             'participant_ids' => ['nullable', 'array'],
             'participant_ids.*' => [Rule::exists('users', 'id')->where('school_id', $schoolId)],
             // الرسالة الافتتاحية نصٌّ أو ملفات أو كلاهما — لا فراغ.
@@ -63,6 +70,12 @@ class StoreConversationRequest extends FormRequest
                 }
             }
 
+            if ($this->input('type') === ConversationType::Complaints->value) {
+                $this->validateComplaint($validator);
+
+                return;
+            }
+
             if ($this->input('type') !== ConversationType::Staff->value) {
                 return;
             }
@@ -89,5 +102,50 @@ class StoreConversationRequest extends FormRequest
                 );
             }
         }];
+    }
+
+    /**
+     * الشكوى: وليُّ أمرٍ يقدّمها، على أستاذٍ أو على بابٍ من الخدمات.
+     *
+     * أحدهما لا كلاهما: شكوى على أستاذٍ **و**على المقصف معاً تصل الإدارة بلا
+     * موضوعٍ واضح، فلا تُفرَز ولا تُحال إلى من يملك حلّها.
+     */
+    private function validateComplaint(Validator $validator): void
+    {
+        if (! $this->user()->role->isGuardian()) {
+            $validator->errors()->add('type', __('messages.conversation.complaint_by_guardian_only'));
+
+            return;
+        }
+
+        $staffId = $this->input('about_staff_id');
+        $category = $this->input('complaint_category');
+
+        if (($staffId === null) === ($category === null)) {
+            $validator->errors()->add(
+                'about_staff_id',
+                __('messages.conversation.complaint_needs_one_subject'),
+            );
+
+            return;
+        }
+
+        if ($staffId === null) {
+            return;
+        }
+
+        // على موظّفٍ لا على وليّ أمرٍ آخر ولا على سائق: الشكوى تخصّ من يدرّس
+        // أو يشرف، وغيرُ ذلك بابٌ آخر.
+        $isStaff = User::query()
+            ->whereKey($staffId)
+            ->whereIn('role', [UserRole::Teacher, UserRole::Admin, UserRole::SuperAdmin])
+            ->exists();
+
+        if (! $isStaff) {
+            $validator->errors()->add(
+                'about_staff_id',
+                __('messages.conversation.complaint_about_staff_only'),
+            );
+        }
     }
 }

@@ -4,9 +4,10 @@ namespace Database\Factories;
 
 use App\Enums\NotificationApp;
 use App\Models\School;
+use App\Models\SchoolNotificationSetting;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\SchoolNotificationSetting> */
+/** @extends Factory<SchoolNotificationSetting> */
 class SchoolNotificationSettingFactory extends Factory
 {
     public function definition(): array

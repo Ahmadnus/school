@@ -2,9 +2,10 @@
 
 namespace Database\Factories;
 
+use App\Models\School;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\School> */
+/** @extends Factory<School> */
 class SchoolFactory extends Factory
 {
     public function definition(): array

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\ComplaintCategory;
 use App\Enums\ConversationStatus;
 use App\Enums\ConversationType;
 use App\Enums\NotificationApp;
@@ -60,7 +61,7 @@ class ConversationController extends Controller
                         ->where('first_name', 'like', $term)
                         ->orWhere('last_name', 'like', $term)));
             })
-            ->with(['student', 'participants', 'participantRecords', 'lastMessage'])
+            ->with(['student', 'participants', 'participantRecords', 'lastMessage', 'aboutStaff'])
             ->withUnreadCountFor($request->user()->id)
             ->orderByDesc('last_message_at')
             ->paginate($request->integer('per_page', 20))
@@ -98,7 +99,9 @@ class ConversationController extends Controller
         // المرسِل أنّه أرسل — طالبٌ بلا وليّ أمر مسجَّل مثلاً. فليُقَل صريحاً.
         if ($requested->isEmpty()) {
             throw ValidationException::withMessages([
-                'participant_ids' => __('messages.conversation.no_recipient'),
+                'participant_ids' => $request->input('type') === ConversationType::Complaints->value
+                    ? __('messages.conversation.complaint_no_office')
+                    : __('messages.conversation.no_recipient'),
             ]);
         }
 
@@ -113,19 +116,23 @@ class ConversationController extends Controller
         // بلا هذا يصير لكل رسالة افتتاحية خيطٌ جديد مع الشخص نفسه: يفتح
         // وليّ الأمر التطبيق فيجد ثلاث محادثات بالاسم ذاته، ويقرأ ردّ
         // المدرسة في واحدة ويكتب في أخرى، ويضيع السياق بين الخيوط.
-        $existing = Conversation::query()
-            ->ofSchool($user->school_id)
-            ->where('type', $request->input('type'))
-            ->where('student_id', $request->input('student_id'))
-            ->whereHas('participantRecords', fn ($q) => $q->where('user_id', $user->id))
-            ->with('participantRecords')
-            ->get()
-            ->first(fn (Conversation $c) => $c->participantRecords
-                ->pluck('user_id')
-                ->unique()
-                ->sort()
-                ->values()
-                ->all() === $ids->all());
+        // الشكوى لا تُضمّ إلى شكوى سابقة: كل واحدة واقعةٌ مستقلّة لها حالتها
+        // ومعالجتها، وضمُّها يخلط شكوى المقصف بشكوى أستاذ في خيطٍ واحد.
+        $existing = $request->input('type') === ConversationType::Complaints->value
+            ? null
+            : Conversation::query()
+                ->ofSchool($user->school_id)
+                ->where('type', $request->input('type'))
+                ->where('student_id', $request->input('student_id'))
+                ->whereHas('participantRecords', fn ($q) => $q->where('user_id', $user->id))
+                ->with('participantRecords')
+                ->get()
+                ->first(fn (Conversation $c) => $c->participantRecords
+                    ->pluck('user_id')
+                    ->unique()
+                    ->sort()
+                    ->values()
+                    ->all() === $ids->all());
 
         if ($existing !== null) {
             $message = DB::transaction(function () use ($existing, $request, $user) {
@@ -160,6 +167,9 @@ class ConversationController extends Controller
                 'type' => $request->input('type'),
                 'student_id' => $request->input('student_id'),
                 'title' => $request->input('title'),
+                // موضوع الشكوى: أحدهما فارغ دائماً — يحرسه التحقّق.
+                'about_staff_id' => $request->input('about_staff_id'),
+                'complaint_category' => $request->input('complaint_category'),
                 'last_message_at' => now(),
             ]);
 
@@ -315,16 +325,18 @@ class ConversationController extends Controller
      */
     private function defaultCounterparts(User $user, ?string $type, ?int $studentId)
     {
+        // الشكوى إلى المكتب دائماً، ولو كانت على أستاذ: الإداريّون وحدهم
+        // يستلمونها — والمشكوّ عليه لا يُضاف طرفاً، فلا يقرؤها أصلاً.
+        if ($type === ConversationType::Complaints->value) {
+            return $this->office($user->school_id);
+        }
+
         if ($type !== ConversationType::Guardians->value) {
             return collect();
         }
 
         if ($user->role->isGuardian()) {
-            return User::query()
-                ->where('school_id', $user->school_id)
-                ->whereIn('role', [UserRole::Admin, UserRole::SuperAdmin])
-                ->where('status', Status::Active)
-                ->pluck('id');
+            return $this->office($user->school_id);
         }
 
         if ($studentId === null) {
@@ -344,6 +356,16 @@ class ConversationController extends Controller
         // الحساب يُنشأ عند الحاجة: وليُّ أمرٍ لم يدخل التطبيق بعد لا حساب له،
         // وكان الخيط يُحفظ حينها بمشاركٍ واحد فلا يصل إليه ولا يُشعَر.
         return GuardianAccount::idsFor($student->guardians);
+    }
+
+    /** إداريّو المدرسة النشطون — مستلمو ما لا مخاطَب له بعينه. */
+    private function office(int $schoolId)
+    {
+        return User::query()
+            ->where('school_id', $schoolId)
+            ->whereIn('role', [UserRole::Admin, UserRole::SuperAdmin])
+            ->where('status', Status::Active)
+            ->pluck('id');
     }
 
     /**
@@ -453,6 +475,12 @@ class ConversationController extends Controller
             'message' => __('messages.conversation.status_updated'),
             'data' => new ConversationResource($conversation->fresh(['participantRecords'])),
         ]);
+    }
+
+    /** أبواب الشكوى على الخدمات — تُقرأ مترجمةً فلا تُكتب في التطبيق. */
+    public function complaintCategories(): JsonResponse
+    {
+        return response()->json(['data' => ComplaintCategory::options()]);
     }
 
     /** The guardian tab's "new message" flow picks a student first. */

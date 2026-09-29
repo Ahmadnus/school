@@ -3,10 +3,11 @@
 namespace Database\Factories;
 
 use App\Enums\GateScanResult;
+use App\Models\GateScan;
 use App\Models\School;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\GateScan> */
+/** @extends Factory<GateScan> */
 class GateScanFactory extends Factory
 {
     public function definition(): array

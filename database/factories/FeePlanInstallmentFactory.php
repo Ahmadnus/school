@@ -3,9 +3,10 @@
 namespace Database\Factories;
 
 use App\Models\FeePlan;
+use App\Models\FeePlanInstallment;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\FeePlanInstallment> */
+/** @extends Factory<FeePlanInstallment> */
 class FeePlanInstallmentFactory extends Factory
 {
     public function definition(): array

@@ -4,10 +4,11 @@ namespace Database\Factories;
 
 use App\Enums\PostGroup;
 use App\Enums\UserRole;
+use App\Models\PostType;
 use App\Models\School;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\PostType> */
+/** @extends Factory<PostType> */
 class PostTypeFactory extends Factory
 {
     public function definition(): array

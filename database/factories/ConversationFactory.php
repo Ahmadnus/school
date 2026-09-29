@@ -4,10 +4,11 @@ namespace Database\Factories;
 
 use App\Enums\ConversationStatus;
 use App\Enums\ConversationType;
+use App\Models\Conversation;
 use App\Models\School;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\Conversation> */
+/** @extends Factory<Conversation> */
 class ConversationFactory extends Factory
 {
     public function definition(): array

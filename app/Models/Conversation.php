@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Casts\DateOnly;
+use App\Enums\ComplaintCategory;
 use App\Enums\ConversationStatus;
 use App\Enums\ConversationType;
 use App\Enums\UserRole;
@@ -21,6 +22,7 @@ class Conversation extends Model
 
     protected $fillable = [
         'school_id', 'type', 'student_id', 'title', 'status', 'last_message_at',
+        'about_staff_id', 'complaint_category',
         'needs_follow_up', 'follow_up_at', 'is_important', 'follow_up_note', 'flagged_by',
     ];
 
@@ -32,6 +34,7 @@ class Conversation extends Model
     {
         return [
             'type' => ConversationType::class,
+            'complaint_category' => ComplaintCategory::class,
             'status' => ConversationStatus::class,
             'last_message_at' => 'datetime',
             'needs_follow_up' => 'boolean',
@@ -43,6 +46,23 @@ class Conversation extends Model
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class);
+    }
+
+    /**
+     * الأستاذ المشكوّ عليه — وليس طرفاً في الخيط.
+     *
+     * الرؤية في هذا النظام بالمشاركين، فغيابُه عنهم يمنعه من قراءة الشكوى
+     * بلا استثناءٍ خاصّ في السياسات.
+     */
+    public function aboutStaff(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'about_staff_id');
+    }
+
+    /** شكوى على أستاذٍ بعينه لا على خدمة. */
+    public function isAboutStaff(): bool
+    {
+        return $this->about_staff_id !== null;
     }
 
     public function messages(): HasMany
@@ -128,6 +148,12 @@ class Conversation extends Model
             ->whereDoesntHave('participants', fn (Builder $q) => $q->where('role', UserRole::Guardian));
     }
 
+    /** تبويب **الشكاوى**: بابها الخاص، فلا تختلط بالمراسلة العادية. */
+    public function scopeComplaintThreads(Builder $query): Builder
+    {
+        return $query->where('type', ConversationType::Complaints);
+    }
+
     /**
      * تبويب **الأهالي**: كل خيط فيه وليّ أمر، ولو خُزِّن `staff` خطأً.
      *
@@ -136,17 +162,23 @@ class Conversation extends Model
      */
     public function scopeGuardianThreads(Builder $query): Builder
     {
-        return $query->where(fn (Builder $q) => $q
-            ->where('type', ConversationType::Guardians)
-            ->orWhereHas('participants', fn (Builder $p) => $p->where('role', UserRole::Guardian)));
+        // الشكوى تُستثنى صريحاً: فيها وليّ أمر، فلولا هذا لظهرت في تبويب
+        // الأهالي أيضاً — وهي لها بابها، والتبويبات لا تتقاسم خيطاً.
+        return $query
+            ->where('type', '!=', ConversationType::Complaints)
+            ->where(fn (Builder $q) => $q
+                ->where('type', ConversationType::Guardians)
+                ->orWhereHas('participants', fn (Builder $p) => $p->where('role', UserRole::Guardian)));
     }
 
     /** يوجّه الخيط إلى تبويبه الصحيح. */
     public function scopeInTab(Builder $query, ConversationType $tab): Builder
     {
-        return $tab === ConversationType::Staff
-            ? $query->staffThreads()
-            : $query->guardianThreads();
+        return match ($tab) {
+            ConversationType::Complaints => $query->complaintThreads(),
+            ConversationType::Staff => $query->staffThreads(),
+            ConversationType::Guardians => $query->guardianThreads(),
+        };
     }
 
     /**

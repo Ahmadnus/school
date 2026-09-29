@@ -2,10 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Models\Rubric;
 use App\Models\School;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\Rubric> */
+/** @extends Factory<Rubric> */
 class RubricFactory extends Factory
 {
     public function definition(): array

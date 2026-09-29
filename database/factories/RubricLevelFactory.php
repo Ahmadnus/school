@@ -3,9 +3,10 @@
 namespace Database\Factories;
 
 use App\Models\Rubric;
+use App\Models\RubricLevel;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<\App\Models\RubricLevel> */
+/** @extends Factory<RubricLevel> */
 class RubricLevelFactory extends Factory
 {
     public function definition(): array

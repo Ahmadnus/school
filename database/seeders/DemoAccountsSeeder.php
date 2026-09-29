@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Enums\GuardianRelation;
-use App\Enums\UserRole;
 use App\Models\Guardian;
 use App\Models\School;
 use App\Models\Student;
