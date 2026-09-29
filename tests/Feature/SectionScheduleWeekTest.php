@@ -14,6 +14,7 @@ use App\Models\TeacherAssignment;
 use App\Models\Term;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -87,6 +88,71 @@ class SectionScheduleWeekTest extends TestCase
                 'subject_id' => $id,
             ], array_keys($subjectIds), $subjectIds)),
         ];
+    }
+
+    /**
+     * عدد الاستعلامات **لا يتحرّك** بعدد الحصص.
+     *
+     * كان لكل حصّة استعلامُ إسنادٍ واستعلامُ تعارض، ثمّ `updateOrCreate` يفحص
+     * ويكتب: أربعة استعلامات لكل حصّة. فحفظ أسبوعٍ واحد يضرب القاعدة مئةً
+     * وخمسين مرّة — ولا يظهر على جهاز المطوّر، ثمّ يكون أوّل ما ينهار.
+     *
+     * والحرس هنا **مقارنةٌ** لا رقمٌ سحريّ: يُحفظ الأسبوع بخمس حصص يومياً ثمّ
+     * بعشر، ويُشترط أن يكون العدد هو نفسه. فإن عاد استعلامٌ لكل حصّة انكسر
+     * الاختبار حتماً، ولا يكسره تحسينٌ لاحق يُنقص العدد.
+     */
+    public function test_query_count_is_independent_of_how_many_periods(): void
+    {
+        foreach ($this->subjects as $subject) {
+            TeacherAssignment::create([
+                'staff_id' => $this->teacher->id,
+                'subject_id' => $subject->id,
+                'section_id' => $this->section->id,
+            ]);
+        }
+
+        // ٠٨:٠٠ بطول ٤٥ دقيقة: حتى ١٢:٠٠ خمس حصص، وحتى ١٦:٠٠ عشر.
+        $short = $this->countQueriesSaving('12:00', 5);
+        $long = $this->countQueriesSaving('16:00', 10);
+
+        $this->assertSame(
+            $short,
+            $long,
+            "الاستعلامات تتبع عدد الحصص: {$short} لخمس حصص و{$long} لعشر.",
+        );
+
+        // وسقفٌ فضفاض يمنع نمواً بعدد **الأيّام** أيضاً.
+        $this->assertLessThan(60, $long, "عدد الاستعلامات ({$long}) أكبر ممّا يبرّره ستّة أيّام.");
+    }
+
+    /** يحفظ ستّة أيّام، كلٌّ منها [$periods] حصّة حتى [$endsAt]، ويردّ عدد الاستعلامات. */
+    private function countQueriesSaving(string $endsAt, int $periods): int
+    {
+        $days = [];
+
+        foreach ([6, 0, 1, 2, 3, 4] as $day) {
+            $row = $this->day($day, []);
+            $row['ends_at'] = $endsAt;
+            // كل حصّة يتّسع لها الدوام تأخذ مادة — الطلب يكبر، والاستعلامات لا.
+            $row['periods'] = [];
+            for ($n = 1; $n <= $periods; $n++) {
+                $row['periods'][] = [
+                    'period_number' => $n,
+                    'subject_id' => $this->subjects[$n % 3]->id,
+                ];
+            }
+            $days[] = $row;
+        }
+
+        $count = 0;
+        DB::listen(function () use (&$count) {
+            $count++;
+        });
+
+        $this->save($days)->assertOk();
+        DB::flushQueryLog();
+
+        return $count;
     }
 
     public function test_the_week_arrives_with_periods_already_timed(): void

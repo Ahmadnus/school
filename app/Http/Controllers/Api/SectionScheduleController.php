@@ -14,6 +14,7 @@ use App\Models\TeacherAssignment;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -341,7 +342,10 @@ class SectionScheduleController extends Controller
             throw ValidationException::withMessages($errors);
         }
 
-        DB::transaction(function () use ($data, $section) {
+        // الإسنادات مرّة قبل المعاملة: كان أستاذ كل حصّة يُسأل عنه باستعلام.
+        $assignments = $this->sectionAssignments($section);
+
+        DB::transaction(function () use ($data, $section, $assignments) {
             foreach ($data['days'] as $row) {
                 $day = (int) $row['day'];
 
@@ -373,7 +377,7 @@ class SectionScheduleController extends Controller
                 );
 
                 $times = collect($hours->periods())->keyBy('period_number');
-                $keep = [];
+                $rows = [];
 
                 foreach ($row['periods'] ?? [] as $period) {
                     $number = (int) $period['period_number'];
@@ -383,30 +387,47 @@ class SectionScheduleController extends Controller
                         continue;
                     }
 
-                    $slot = ScheduleSlot::updateOrCreate([
+                    $rows[] = [
                         'section_id' => $section->id,
                         'term_id' => $data['term_id'],
                         'day_of_week' => $day,
                         'period_number' => $number,
-                    ], [
                         'subject_id' => $period['subject_id'],
                         'staff_id' => empty($period['teacher_id'])
-                            ? $this->defaultTeacherFor($section, (int) $period['subject_id'])
+                            ? $this->defaultTeacherFrom($assignments, (int) $period['subject_id'])
                             : (int) $period['teacher_id'],
                         'starts_at' => $time['starts_at'],
                         'ends_at' => $time['ends_at'],
-                    ]);
-
-                    $keep[] = $slot->id;
+                    ];
                 }
+
+                // حصص اليوم في كتابةٍ واحدة على القيد الفريد
+                // (`schedule_slots_slot_unique`) بدل `updateOrCreate` لكل حصّة —
+                // وتلك كانت تفحص ثمّ تكتب، أي صفّين لكل حصّة.
+                //
+                // و`timetable_run_id` خارج أعمدة التحديث بقصد: حصّةٌ ولّدها
+                // المولّد ثمّ عُدِّلت هنا تبقى منسوبةً إليه، فإعادة التوليد
+                // تعرف ما تملكه — وهو ما كان `updateOrCreate` يفعله أيضاً.
+                if ($rows !== []) {
+                    ScheduleSlot::upsert(
+                        $rows,
+                        ['section_id', 'term_id', 'day_of_week', 'period_number'],
+                        ['subject_id', 'staff_id', 'starts_at', 'ends_at'],
+                    );
+                }
+
+                $keep = array_column($rows, 'period_number');
 
                 // حصّة بلا مادة تُحذف بدل أن تبقى فارغة — نفس قاعدة `setGrid`،
                 // ويدخل فيها ما تجاوز عدد الحصص بعد تقصير الدوام.
+                //
+                // بأرقام الحصص لا بالمعرّفات: `upsert` لا يردّ معرّفات ما كتبه،
+                // ورقم الحصّة هو المفتاح الطبيعي داخل اليوم على أي حال.
                 ScheduleSlot::query()
                     ->where('section_id', $section->id)
                     ->where('term_id', $data['term_id'])
                     ->where('day_of_week', $day)
-                    ->whereNotIn('id', $keep ?: [0])
+                    ->when($keep !== [], fn ($q) => $q->whereNotIn('period_number', $keep))
                     ->delete();
             }
         });
@@ -444,11 +465,16 @@ class SectionScheduleController extends Controller
             ->all();
 
         // إسنادات هذه الشعبة: من يجوز أن يدرّس أي مادة فيها.
-        $allowed = TeacherAssignment::query()
-            ->where('section_id', $section->id)
-            ->get()
-            ->groupBy('subject_id')
-            ->map(fn ($rows) => $rows->pluck('staff_id')->filter()->unique()->values()->all());
+        $allowed = $this->sectionAssignments($section);
+
+        // التعارضات كلّها قبل الحلقة — استعلامٌ واحد بدل واحدٍ لكل حصّة.
+        $touched = $this->touchedBy($data, $allowed);
+        $clashes = $this->clashMap(
+            $section,
+            (int) $data['term_id'],
+            $touched['teachers'],
+            $touched['days'],
+        );
 
         $teacherLoad = [];
 
@@ -519,7 +545,7 @@ class SectionScheduleController extends Controller
                 }
 
                 $teacherId = empty($period['teacher_id'])
-                    ? $this->defaultTeacherFor($section, $subjectId)
+                    ? $this->defaultTeacherFrom($allowed, $subjectId)
                     : (int) $period['teacher_id'];
 
                 if ($teacherId === null) {
@@ -550,19 +576,12 @@ class SectionScheduleController extends Controller
                 $teacherLoad[$teacherId][$day][$number] = true;
 
                 // تعارضٌ مع شعبة أخرى في الفصل نفسه — أستاذ واحد لا يكون في
-                // صفّين في الوقت ذاته.
-                $clash = ScheduleSlot::query()
-                    ->where('staff_id', $teacherId)
-                    ->where('term_id', $data['term_id'])
-                    ->where('day_of_week', $day)
-                    ->where('period_number', $number)
-                    ->where('section_id', '!=', $section->id)
-                    ->with('section')
-                    ->first();
+                // صفّين في الوقت ذاته. يُسأل من الخريطة المُحمَّلة سلفاً.
+                $clashSection = $clashes["{$teacherId}|{$day}|{$number}"] ?? null;
 
-                if ($clash !== null) {
+                if ($clashSection !== null) {
                     $errors["{$slotKey}.teacher_id"][] = __('messages.schedule.teacher_busy', [
-                        'section' => $clash->section?->name ?? '—',
+                        'section' => $clashSection,
                     ]);
                 }
             }
@@ -572,22 +591,105 @@ class SectionScheduleController extends Controller
     }
 
     /**
-     * أستاذ المادة في هذه الشعبة إن كان واحداً لا غير.
+     * إسنادات الشعبة: `subject_id` ← أرقام الأساتذة.
+     *
+     * تُقرأ **مرّة** لتُسأل في الذاكرة بعدها. كان سؤالها يتكرّر لكل حصّة، وحفظُ
+     * أسبوعٍ كامل يبلغ ١٢٠ حصّة — أي ١٢٠ استعلاماً لجوابٍ واحد لا يتغيّر.
+     *
+     * @return Collection<int, array<int, int>>
+     */
+    private function sectionAssignments(Section $section)
+    {
+        return TeacherAssignment::query()
+            ->where('section_id', $section->id)
+            ->get()
+            ->groupBy('subject_id')
+            ->map(fn ($rows) => $rows->pluck('staff_id')->filter()->unique()->values()->all());
+    }
+
+    /**
+     * أستاذ المادة إن كان واحداً لا غير.
      *
      * الواحد يُختار وحده فلا يُسأل عنه المستخدم؛ والاثنان يبقى اختيارهما له —
      * فالتخمين بينهما يُنشئ جدولاً يبدو صحيحاً وهو خطأ.
+     *
+     * @param  Collection<int, array<int, int>>  $assignments
      */
-    private function defaultTeacherFor(Section $section, int $subjectId): ?int
+    private function defaultTeacherFrom($assignments, int $subjectId): ?int
     {
-        $staff = TeacherAssignment::query()
-            ->where('section_id', $section->id)
-            ->where('subject_id', $subjectId)
-            ->pluck('staff_id')
-            ->filter()
-            ->unique()
-            ->values();
+        $staff = $assignments->get($subjectId) ?? [];
 
-        return $staff->count() === 1 ? (int) $staff->first() : null;
+        return count($staff) === 1 ? (int) $staff[0] : null;
+    }
+
+    /**
+     * تعارضات الأسبوع كلّه في استعلامٍ واحد: «أستاذ|يوم|حصّة» ← اسم الشعبة.
+     *
+     * كان لكل حصّة استعلامُ تعارضٍ خاص بها. والحدّ الأعلى ٢٠ حصّة في ستّة أيام،
+     * فحفظُ جدولٍ واحد يضرب القاعدة ١٢٠ مرّة — ولا يظهر على جهاز المطوّر، ثم
+     * يكون أوّل ما ينهار تحت الحمل.
+     *
+     * @param  array<int, int>  $teacherIds
+     * @param  array<int, int>  $days
+     * @return array<string, string>
+     */
+    private function clashMap(Section $section, int $termId, array $teacherIds, array $days): array
+    {
+        if ($teacherIds === [] || $days === []) {
+            return [];
+        }
+
+        return ScheduleSlot::query()
+            ->where('term_id', $termId)
+            ->where('section_id', '!=', $section->id)
+            ->whereIn('staff_id', $teacherIds)
+            ->whereIn('day_of_week', $days)
+            ->with('section:id,name')
+            ->get(['id', 'section_id', 'staff_id', 'day_of_week', 'period_number'])
+            ->mapWithKeys(fn (ScheduleSlot $slot) => [
+                $slot->staff_id.'|'.$slot->day_of_week->value.'|'.$slot->period_number => $slot->section?->name ?? '—',
+            ])
+            ->all();
+    }
+
+    /**
+     * الأساتذة والأيّام التي يمسّها هذا الطلب — لتُجلَب تعارضاتهم وحدها.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  Collection<int, array<int, int>>  $assignments
+     * @return array{teachers: array<int, int>, days: array<int, int>}
+     */
+    private function touchedBy(array $data, $assignments): array
+    {
+        $teachers = [];
+        $days = [];
+
+        foreach ($data['days'] as $row) {
+            if (! ($row['working'] ?? false)) {
+                continue;
+            }
+
+            $days[] = (int) $row['day'];
+
+            foreach ($row['periods'] ?? [] as $period) {
+                if (empty($period['subject_id'])) {
+                    continue;
+                }
+
+                $teacher = empty($period['teacher_id'])
+                    ? $this->defaultTeacherFrom($assignments, (int) $period['subject_id'])
+                    : (int) $period['teacher_id'];
+
+                if ($teacher !== null) {
+                    $teachers[] = $teacher;
+                }
+            }
+        }
+
+        return [
+            'teachers' => array_values(array_unique($teachers)),
+            'days' => array_values(array_unique($days)),
+        ];
     }
 
     /**
