@@ -2,6 +2,7 @@
 
 return [
     'attendance_absence' => 'تسجيل غياب',
+    'gate_arrival' => 'وصول إلى المدرسة',
     'attendance_present' => 'تسجيل حضور',
     'attendance_summary' => 'ملخّص الحضور',
     'attendance_late' => 'تسجيل تأخّر',

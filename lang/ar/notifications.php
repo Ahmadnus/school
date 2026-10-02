@@ -12,6 +12,7 @@ return [
     'grade_published_body' => ':assessment: :score من :max.',
     'tasmi_recorded_title' => 'تسميع :name — :subject',
     'tasmi_recorded_body' => 'حصل ابنكم على :score من :max في تسميع :subject بتاريخ :date.',
+    'gate_arrival_body' => 'وصل :name إلى المدرسة الساعة :time.',
     'grade_summary_title' => 'علامات :subject — :section',
     'grade_summary_body' => 'صُحِّح :count · المعدّل :average · الأعلى :highest من :max',
     'below_pass' => ':count تحت علامة النجاح',

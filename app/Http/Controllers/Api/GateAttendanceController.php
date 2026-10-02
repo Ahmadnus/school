@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\AttendanceSource;
 use App\Enums\AttendanceStatus;
 use App\Enums\GateScanResult;
+use App\Enums\NotificationApp;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Attendance\StoreGateScanRequest;
 use App\Http\Requests\Attendance\StoreStudentCardRequest;
@@ -14,6 +15,8 @@ use App\Models\AttendanceRecord;
 use App\Models\GateScan;
 use App\Models\Student;
 use App\Models\StudentCard;
+use App\Services\GuardianWhatsApp;
+use App\Services\NotificationGate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -103,6 +106,11 @@ class GateAttendanceController extends Controller
             ]);
         });
 
+        // الوصول الأوّل في اليوم وحده يُبلَّغ: المسح المكرّر لا يقول جديداً.
+        if ($result === GateScanResult::Accepted) {
+            $this->notifyArrival($student, $scannedAt);
+        }
+
         return response()->json([
             'message' => $result->label(),
             'data' => new GateScanResource($scan->load('student.currentEnrollment.section.grade')),
@@ -127,6 +135,35 @@ class GateAttendanceController extends Controller
             ->withQueryString();
 
         return GateScanResource::collection($scans);
+    }
+
+    /** Tells each guardian their child is through the gate. */
+    private function notifyArrival(Student $student, \DateTimeInterface $scannedAt): void
+    {
+        $student->loadMissing('guardians.user');
+
+        $title = __('notification_keys.gate_arrival').' — '.$student->full_name;
+        $body = __('notifications.gate_arrival_body', [
+            'name' => $student->first_name,
+            'time' => $scannedAt->format('H:i'),
+        ]);
+
+        foreach ($student->guardians as $guardian) {
+            if (! $guardian->user) {
+                GuardianWhatsApp::send($guardian, 'gate_arrival', $title, $body);
+
+                continue;
+            }
+
+            NotificationGate::notify(
+                $guardian->user,
+                'gate_arrival',
+                $title,
+                $body,
+                $student->id,
+                NotificationApp::Guardian,
+            );
+        }
     }
 
     /**

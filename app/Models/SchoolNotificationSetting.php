@@ -19,6 +19,7 @@ class SchoolNotificationSetting extends Model
         ['key' => 'attendance_absence', 'group' => 'attendance'],
         ['key' => 'attendance_summary', 'group' => 'attendance'],
         ['key' => 'attendance_late', 'group' => 'attendance'],
+        ['key' => 'gate_arrival', 'group' => 'attendance'],
         ['key' => 'excuse_submitted', 'group' => 'attendance'],
         ['key' => 'excuse_reviewed', 'group' => 'attendance'],
         ['key' => 'grade_published', 'group' => 'academic'],

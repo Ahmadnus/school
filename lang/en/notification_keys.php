@@ -2,6 +2,7 @@
 
 return [
     'attendance_absence' => 'Absence recorded',
+    'gate_arrival' => 'Arrived at school',
     'attendance_present' => 'Attendance recorded',
     'attendance_summary' => 'Roll-call summary',
     'attendance_late' => 'Late arrival recorded',

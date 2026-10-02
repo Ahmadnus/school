@@ -59,6 +59,25 @@ class TasmiNotifier
                 continue;
             }
 
+            $title = __('notifications.tasmi_recorded_title', [
+                'name' => $student->first_name,
+                'subject' => $subject,
+            ]);
+            $body = __('notifications.tasmi_recorded_body', [
+                'score' => self::plain($score->score),
+                'max' => $max,
+                'subject' => $subject,
+                'date' => $date,
+            ]);
+
+            // من لم يفتح التطبيق بعد يصله التسميع على واتساب. يبقى في
+            // «لم يسجّل الدخول» لأنّ التطبيق نفسه لم يصله شيء.
+            foreach ($student->guardians as $guardian) {
+                if ($guardian->user === null) {
+                    GuardianWhatsApp::send($guardian, 'tasmi_recorded', $title, $body);
+                }
+            }
+
             $recipients = $student->guardians->filter(fn ($guardian) => $guardian->user !== null);
 
             if ($recipients->isEmpty()) {
@@ -75,16 +94,8 @@ class TasmiNotifier
                 $notification = NotificationGate::notify(
                     $guardian->user,
                     'tasmi_recorded',
-                    __('notifications.tasmi_recorded_title', [
-                        'name' => $student->first_name,
-                        'subject' => $subject,
-                    ]),
-                    __('notifications.tasmi_recorded_body', [
-                        'score' => self::plain($score->score),
-                        'max' => $max,
-                        'subject' => $subject,
-                        'date' => $date,
-                    ]),
+                    $title,
+                    $body,
                     $student->id,
                     NotificationApp::Guardian,
                 );

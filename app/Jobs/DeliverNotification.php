@@ -2,7 +2,6 @@
 
 namespace App\Jobs;
 
-use App\Events\NotificationCreated;
 use App\Models\Notification;
 use App\Models\User;
 use App\Services\FcmSender;
@@ -11,7 +10,10 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 
 /**
- * يوصل إشعاراً واحداً إلى قناتيه: البثّ اللحظي ودفع الهاتف.
+ * يدفع إشعاراً واحداً إلى هاتف المستخدم عبر FCM.
+ *
+ * البثّ اللحظي خرج من هنا إلى {@see \App\Services\NotificationGate}: Reverb على
+ * الخادم نفسه فلا داعي أن ينتظر دوره. بقي الدفع وحده، فهو نداءٌ إلى Google.
  *
  * كان هذا يجري **داخل الطلب**: تسجيل حضور شعبة من ثلاثين طالباً يعني ستّين
  * نداءً شبكيّاً خارجيّاً قبل أن يردّ الخادم على المعلّم — ينتظر وهو واقف
@@ -32,14 +34,6 @@ class DeliverNotification implements ShouldQueue
 
     public function handle(): void
     {
-        try {
-            NotificationCreated::dispatch($this->notification);
-        } catch (\Throwable $e) {
-            Log::warning('Realtime broadcast failed: '.$e->getMessage(), [
-                'notification' => $this->notification->id,
-            ]);
-        }
-
         try {
             FcmSender::send($this->user, $this->notification);
         } catch (\Throwable $e) {

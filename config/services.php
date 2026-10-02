@@ -48,6 +48,12 @@ return [
         'url' => env('WHATSAPP_API_URL'),
         'key' => env('WHATSAPP_API_KEY'),
         'session' => env('WHATSAPP_SESSION', 'default'),
+        // Guardian notification keys that also go out on WhatsApp. Kept short
+        // on purpose: a busy gateway number is a banned one.
+        'notify_keys' => array_filter(explode(',', env(
+            'WHATSAPP_NOTIFY_KEYS',
+            'tasmi_recorded,attendance_absence,behavior_record',
+        ))),
     ],
 
     'slack' => [

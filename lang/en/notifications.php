@@ -12,6 +12,7 @@ return [
     'grade_published_body' => ':assessment: :score out of :max.',
     'tasmi_recorded_title' => 'Recitation for :name — :subject',
     'tasmi_recorded_body' => 'Your child received :score/:max in :subject recitation on :date.',
+    'gate_arrival_body' => ':name arrived at school at :time.',
     'grade_summary_title' => ':subject grades — :section',
     'grade_summary_body' => 'Marked :count · average :average · highest :highest of :max',
     'below_pass' => ':count below the pass mark',
