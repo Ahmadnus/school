@@ -67,7 +67,7 @@ Route::post('staff/request-code', [StaffAuthController::class, 'requestCode'])
 Route::post('staff/verify-code', [StaffAuthController::class, 'verifyCode'])
     ->middleware('throttle:10,1');
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::get('me', [AuthController::class, 'me']);
     Route::post('logout', [AuthController::class, 'logout']);
 

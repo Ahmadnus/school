@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -23,10 +24,11 @@ return Application::configure(basePath: dirname(__DIR__))
     // reachable at POST /api/broadcasting/auth.
     ->withBroadcasting(
         __DIR__.'/../routes/channels.php',
-        ['prefix' => 'api', 'middleware' => ['api', 'auth:sanctum']],
+        ['prefix' => 'api', 'middleware' => ['api', 'auth:sanctum', 'active']],
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(prepend: [SetLocale::class]);
+        $middleware->alias(['active' => EnsureUserIsActive::class]);
 
         // The API has no login page: an unauthenticated call (even without an
         // Accept header) must be a 401 JSON, not a redirect to a missing route.

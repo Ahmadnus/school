@@ -150,6 +150,42 @@ class ApiSmokeTest extends TestCase
         $this->assertSame([], $failures, implode("\n", $failures));
     }
 
+    /**
+     * مدرسةٌ يومَ فتحت حسابها: لا سنة دراسية ولا شعب ولا طلاب. كل شاشة
+     * تُفتح حينها يجب أن تقول «لا شيء بعد» لا أن تنكسر.
+     */
+    public function test_a_brand_new_empty_school_breaks_nothing(): void
+    {
+        $empty = School::factory()->create();
+        $this->school = $empty;
+
+        foreach ([UserRole::SuperAdmin, UserRole::Teacher] as $role) {
+            $user = User::factory()->role($role)->create(['school_id' => $empty->id]);
+            $failures = $this->failuresFor($user);
+            $this->assertSame([], $failures, $role->value.":\n".implode("\n", $failures));
+        }
+    }
+
+    /** وليّ أمرٍ دخل التطبيق ولم يُربط بعدُ بأيّ طالب. */
+    public function test_a_guardian_with_no_children_breaks_nothing(): void
+    {
+        $lonely = Guardian::factory()->create(['school_id' => $this->school->id]);
+
+        $failures = $this->failuresFor(GuardianAccount::for($lonely));
+
+        $this->assertSame([], $failures, implode("\n", $failures));
+    }
+
+    /** أستاذٌ جديد لم تُسند إليه مادّة ولا شعبة. */
+    public function test_a_teacher_with_no_assignments_breaks_nothing(): void
+    {
+        $fresh = User::factory()->role(UserRole::Teacher)->create(['school_id' => $this->school->id]);
+
+        $failures = $this->failuresFor($fresh);
+
+        $this->assertSame([], $failures, implode("\n", $failures));
+    }
+
     public function test_no_screen_breaks_for_a_guardian(): void
     {
         $failures = $this->failuresFor($this->guardianUser());
