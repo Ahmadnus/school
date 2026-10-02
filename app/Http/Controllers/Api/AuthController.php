@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Support\PhoneLookup;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -21,7 +22,8 @@ class AuthController extends Controller
 
         $user = User::query()
             ->where('email', $login)
-            ->orWhere('phone', $login)
+            // الهاتف بأيّ صيغة كتبها: `+963…` أو `0…` ({@see PhoneLookup}).
+            ->orWhereIn('phone', PhoneLookup::candidates($login))
             ->first();
 
         if (! $user || ! $user->password || ! Hash::check($request->string('password'), $user->password)) {

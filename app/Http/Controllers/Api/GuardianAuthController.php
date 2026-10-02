@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Rules\PhoneNumber;
 use App\Services\GuardianAccount;
 use App\Services\WhatsAppSender;
+use App\Support\PhoneLookup;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -38,20 +39,25 @@ class GuardianAuthController extends Controller
             'phone' => ['required', 'string', new PhoneNumber],
         ]);
 
-        $guardian = Guardian::query()->where('phone', $data['phone'])->first();
+        // بأيّ صيغة كُتب الرقم: `+963…` أو `0…` أو بلا صفر ({@see PhoneLookup}).
+        $guardian = self::guardianFor($data['phone']);
 
         if ($guardian !== null) {
+            // الرمز يُحفظ على الرقم كما سجّلته المدرسة، فيلتقي الطلب والتحقّق
+            // ولو اختلفت صيغة الكتابة بينهما.
+            $phone = $guardian->phone;
+
             // A fresh request invalidates earlier codes for the same phone.
             GuardianOtp::query()
-                ->where('phone', $data['phone'])
+                ->where('phone', $phone)
                 ->whereNull('consumed_at')
                 ->update(['consumed_at' => now()]);
 
-            $code = self::demoCodeFor($data['phone'])
+            $code = self::demoCodeFor($phone)
                 ?? str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
             GuardianOtp::create([
-                'phone' => $data['phone'],
+                'phone' => $phone,
                 'code_hash' => Hash::make($code),
                 'expires_at' => now()->addMinutes(GuardianOtp::TTL_MINUTES),
             ]);
@@ -62,7 +68,7 @@ class GuardianAuthController extends Controller
             if (WhatsAppSender::isConfigured()) {
                 SendLoginCode::dispatch($guardian->phone, $guardian->school?->phone_country_code ?? '963', $code);
             } else {
-                Log::info('Guardian OTP issued', ['phone' => $data['phone'], 'code' => $code]);
+                Log::info('Guardian OTP issued', ['phone' => $phone, 'code' => $code]);
             }
 
             if (config('services.guardian_auth.expose_code')) {
@@ -76,6 +82,11 @@ class GuardianAuthController extends Controller
         return response()->json([
             'message' => __('messages.guardian_auth.code_sent'),
         ]);
+    }
+
+    private static function guardianFor(string $phone): ?Guardian
+    {
+        return Guardian::query()->whereIn('phone', PhoneLookup::candidates($phone))->first();
     }
 
     /**
@@ -112,13 +123,15 @@ class GuardianAuthController extends Controller
             'code' => ['required', 'string', 'size:6'],
         ]);
 
-        $otp = GuardianOtp::query()
-            ->where('phone', $data['phone'])
+        $guardian = self::guardianFor($data['phone']);
+
+        $otp = $guardian === null ? null : GuardianOtp::query()
+            ->where('phone', $guardian->phone)
             ->usable()
             ->latest('id')
             ->first();
 
-        if ($otp === null || ! Hash::check($data['code'], $otp->code_hash)) {
+        if ($guardian === null || $otp === null || ! Hash::check($data['code'], $otp->code_hash)) {
             // Count the attempt so guessing burns the code rather than the clock.
             $otp?->increment('attempts');
 
@@ -126,8 +139,6 @@ class GuardianAuthController extends Controller
                 'code' => __('messages.guardian_auth.code_invalid'),
             ]);
         }
-
-        $guardian = Guardian::query()->where('phone', $data['phone'])->firstOrFail();
 
         // الإنشاء في {@see GuardianAccount}: الحساب يلزم عند الدخول وعند
         // المراسلة سواءً، ونسختان منه تفترقان عند أوّل تعديل.

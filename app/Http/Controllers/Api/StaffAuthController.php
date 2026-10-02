@@ -10,6 +10,7 @@ use App\Models\StaffOtp;
 use App\Models\User;
 use App\Rules\PhoneNumber;
 use App\Services\WhatsAppSender;
+use App\Support\PhoneLookup;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -22,6 +23,9 @@ use Illuminate\Validation\ValidationException;
  * {@see GuardianAuthController}، ولو دخل من هنا لفتح تطبيق الكادر بحسابه.
  * والردّ متطابق للرقم المعروف والغريب، كما في دخول الأهالي، كي لا يكشف
  * المسارُ من يعمل في المدرسة.
+ *
+ * الرقم يُقبل بأيّ صيغة ({@see PhoneLookup})، والرمز يُحفظ على الرقم كما في
+ * الحساب، فيلتقي الطلب والتحقّق ولو اختلفت الكتابة بينهما.
  */
 class StaffAuthController extends Controller
 {
@@ -37,14 +41,14 @@ class StaffAuthController extends Controller
         if ($user !== null && WhatsAppSender::isConfigured()) {
             // A fresh request invalidates earlier codes for the same phone.
             StaffOtp::query()
-                ->where('phone', $data['phone'])
+                ->where('phone', $user->phone)
                 ->whereNull('consumed_at')
                 ->update(['consumed_at' => now()]);
 
             $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
             StaffOtp::create([
-                'phone' => $data['phone'],
+                'phone' => $user->phone,
                 'code_hash' => Hash::make($code),
                 'expires_at' => now()->addMinutes(StaffOtp::TTL_MINUTES),
             ]);
@@ -65,13 +69,13 @@ class StaffAuthController extends Controller
             'code' => ['required', 'string', 'size:6'],
         ]);
 
-        $otp = StaffOtp::query()
-            ->where('phone', $data['phone'])
+        $user = self::staffFor($data['phone']);
+
+        $otp = $user === null ? null : StaffOtp::query()
+            ->where('phone', $user->phone)
             ->usable()
             ->latest('id')
             ->first();
-
-        $user = self::staffFor($data['phone']);
 
         if ($otp === null || $user === null || ! Hash::check($data['code'], $otp->code_hash)) {
             // Count the attempt so guessing burns the code rather than the clock.
@@ -95,7 +99,7 @@ class StaffAuthController extends Controller
     /** An active staff account on this phone, or `null`. */
     private static function staffFor(string $phone): ?User
     {
-        $user = User::query()->where('phone', $phone)->first();
+        $user = User::query()->whereIn('phone', PhoneLookup::candidates($phone))->first();
 
         if ($user === null || $user->role->isGuardian() || $user->status !== Status::Active) {
             return null;
