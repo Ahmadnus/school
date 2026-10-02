@@ -5,6 +5,7 @@ namespace App\Http\Requests\Message;
 use App\Enums\ComplaintCategory;
 use App\Enums\ConversationType;
 use App\Enums\UserRole;
+use App\Models\Guardian;
 use App\Models\User;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -18,9 +19,13 @@ class StoreConversationRequest extends FormRequest
 
         return [
             'type' => ['required', Rule::enum(ConversationType::class)],
-            // Guardian threads are always about one student.
+            // الموظّف في تبويب الأهالي يكتب عن طالب: منه يُعرَف أولياء الأمر
+            // المستلمون. أمّا وليّ الأمر فيكتب إلى المدرسة، فلا يُسأل عن ابنه
+            // — ومن له ابنٌ واحد يُربط به من تلقائه ({@see prepareForValidation}).
             'student_id' => [
-                'required_if:type,guardians', 'nullable',
+                Rule::requiredIf(fn () => $this->input('type') === ConversationType::Guardians->value
+                    && ! $this->user()->role->isGuardian()),
+                'nullable',
                 Rule::exists('students', 'id')->where('school_id', $schoolId),
             ],
             'title' => ['nullable', 'string', 'max:255'],
@@ -39,6 +44,30 @@ class StoreConversationRequest extends FormRequest
             'files' => ['nullable', 'array', 'max:5'],
             'files.*' => ['file', 'max:10240'],
         ];
+    }
+
+    /**
+     * وليّ أمرٍ له ابنٌ واحد: المحادثة عنه بلا سؤال، فيرى المشرف عمّن يُكتَب.
+     * ومن له أكثر يبقى خيطه بلا طالب — اختيارُ أحدهم تخمينٌ لا معلومة.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->filled('student_id')
+            || $this->input('type') !== ConversationType::Guardians->value
+            || ! $this->user()->role->isGuardian()) {
+            return;
+        }
+
+        $children = Guardian::query()
+            ->where('user_id', $this->user()->id)
+            ->with('students:id')
+            ->get()
+            ->flatMap(fn (Guardian $g) => $g->students->pluck('id'))
+            ->unique();
+
+        if ($children->count() === 1) {
+            $this->merge(['student_id' => $children->first()]);
+        }
     }
 
     /**

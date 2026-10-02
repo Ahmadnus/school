@@ -156,6 +156,52 @@ class GuardianMessageDeliveryTest extends TestCase
         );
     }
 
+    public function test_a_guardian_writes_without_picking_a_child(): void
+    {
+        $admin = User::factory()->role(UserRole::Admin)->create([
+            'school_id' => $this->school->id,
+        ]);
+
+        Sanctum::actingAs(GuardianAccount::for($this->guardian));
+
+        $id = $this->postJson('/api/conversations', [
+            'type' => 'guardians',
+            'body' => 'استفسار',
+        ])->assertCreated()->json('data.id');
+
+        $conversation = Conversation::findOrFail($id);
+
+        // ابنٌ واحد: الخيط عنه من تلقائه، والمكتب يستلم.
+        $this->assertSame($this->student->id, $conversation->student_id);
+        $this->assertTrue($conversation->participantRecords()->where('user_id', $admin->id)->exists());
+    }
+
+    public function test_with_several_children_the_thread_carries_none(): void
+    {
+        User::factory()->role(UserRole::Admin)->create(['school_id' => $this->school->id]);
+        $sibling = Student::factory()->create(['school_id' => $this->school->id]);
+        $sibling->guardians()->attach($this->guardian->id, ['relation' => 'father', 'is_primary' => true]);
+
+        Sanctum::actingAs(GuardianAccount::for($this->guardian));
+
+        $id = $this->postJson('/api/conversations', [
+            'type' => 'guardians',
+            'body' => 'استفسار',
+        ])->assertCreated()->json('data.id');
+
+        $this->assertNull(Conversation::findOrFail($id)->student_id);
+    }
+
+    public function test_staff_still_name_the_student(): void
+    {
+        Sanctum::actingAs($this->teacher);
+
+        $this->postJson('/api/conversations', [
+            'type' => 'guardians',
+            'body' => 'مرحباً',
+        ])->assertStatus(422)->assertJsonValidationErrors('student_id');
+    }
+
     public function test_a_guardian_may_not_write_to_another_guardian(): void
     {
         $other = Guardian::factory()->create(['school_id' => $this->school->id]);
