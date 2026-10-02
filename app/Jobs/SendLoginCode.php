@@ -2,36 +2,34 @@
 
 namespace App\Jobs;
 
-use App\Models\Guardian;
 use App\Services\WhatsAppSender;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
 /**
- * يوصل رمز الدخول إلى وليّ الأمر على واتساب.
+ * يوصل رمز الدخول على واتساب — لوليّ الأمر وللكادر سواءً.
  *
  * في الطابور لا في الطلب: لو أُرسل داخل الطلب لصار زمن الردّ على رقمٍ
  * مسجَّل أطول منه على رقمٍ غريب، فيكشف التوقيتُ ما يخفيه الردّ المتطابق.
  *
  * والحمولة مشفّرة: الرمز يبيت في جدول `jobs` حتى يلتقطه العامل.
  */
-class SendGuardianOtp implements ShouldQueue, ShouldBeEncrypted
+class SendLoginCode implements ShouldQueue, ShouldBeEncrypted
 {
     use Queueable;
 
     public function __construct(
-        private readonly Guardian $guardian,
+        private readonly string $phone,
+        private readonly string $countryCode,
         private readonly string $code,
     ) {}
 
     public function handle(): void
     {
-        $countryCode = $this->guardian->school?->phone_country_code ?? '963';
-
         WhatsAppSender::send(
-            $this->guardian->phone,
-            $countryCode,
+            $this->phone,
+            $this->countryCode,
             __('messages.guardian_auth.whatsapp_code', ['code' => $this->code]),
         );
     }

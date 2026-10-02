@@ -36,6 +36,7 @@ use App\Http\Controllers\Api\SchoolController;
 use App\Http\Controllers\Api\SchoolHoursController;
 use App\Http\Controllers\Api\SectionController;
 use App\Http\Controllers\Api\SectionScheduleController;
+use App\Http\Controllers\Api\StaffAuthController;
 use App\Http\Controllers\Api\StudentController;
 use App\Http\Controllers\Api\StudentEnrollmentController;
 use App\Http\Controllers\Api\StudentGuardianController;
@@ -59,6 +60,11 @@ Route::post('login', [AuthController::class, 'login'])->middleware('throttle:6,1
 Route::post('guardian/request-code', [GuardianAuthController::class, 'requestCode'])
     ->middleware('throttle:5,1');
 Route::post('guardian/verify-code', [GuardianAuthController::class, 'verifyCode'])
+    ->middleware('throttle:10,1');
+// Staff app sign-in by a WhatsApp code, alongside the password login.
+Route::post('staff/request-code', [StaffAuthController::class, 'requestCode'])
+    ->middleware('throttle:5,1');
+Route::post('staff/verify-code', [StaffAuthController::class, 'verifyCode'])
     ->middleware('throttle:10,1');
 
 Route::middleware('auth:sanctum')->group(function () {
