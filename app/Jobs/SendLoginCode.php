@@ -23,6 +23,9 @@ class SendLoginCode implements ShouldQueue, ShouldBeEncrypted
         private readonly string $phone,
         private readonly string $countryCode,
         private readonly string $code,
+        // الرسالة تُفتتح باسم المدرسة: رمزٌ من رقمٍ لا يعرفه المستلم يُتجاهَل
+        // ما لم يقل من أين جاء.
+        private readonly string $schoolName = '',
     ) {}
 
     public function handle(): void
@@ -30,7 +33,10 @@ class SendLoginCode implements ShouldQueue, ShouldBeEncrypted
         WhatsAppSender::send(
             $this->phone,
             $this->countryCode,
-            __('messages.guardian_auth.whatsapp_code', ['code' => $this->code]),
+            __('messages.guardian_auth.whatsapp_code', [
+                'code' => $this->code,
+                'school' => $this->schoolName !== '' ? $this->schoolName : config('app.name'),
+            ]),
         );
     }
 }

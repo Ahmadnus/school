@@ -66,7 +66,12 @@ class GuardianAuthController extends Controller
             // touches the log. Without it, the log line is the only way to
             // read the code while debugging.
             if (WhatsAppSender::isConfigured()) {
-                SendLoginCode::dispatch($guardian->phone, $guardian->school?->phone_country_code ?? '963', $code);
+                SendLoginCode::dispatch(
+                    $guardian->phone,
+                    $guardian->school?->phone_country_code ?? '963',
+                    $code,
+                    (string) $guardian->school?->name,
+                );
             } else {
                 Log::info('Guardian OTP issued', ['phone' => $phone, 'code' => $code]);
             }
