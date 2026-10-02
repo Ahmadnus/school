@@ -40,6 +40,16 @@ return [
         'credentials_json' => env('FCM_CREDENTIALS_JSON'),
     ],
 
+    /*
+     * WhatsApp through a WAHA gateway (WhatsApp HTTP API), used for guardian
+     * sign-in codes. Leave WHATSAPP_API_URL empty and nothing is sent.
+     */
+    'whatsapp' => [
+        'url' => env('WHATSAPP_API_URL'),
+        'key' => env('WHATSAPP_API_KEY'),
+        'session' => env('WHATSAPP_SESSION', 'default'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
+use App\Jobs\SendGuardianOtp;
 use App\Models\Guardian;
 use App\Models\GuardianOtp;
 use App\Models\User;
 use App\Rules\PhoneNumber;
 use App\Services\GuardianAccount;
+use App\Services\WhatsAppSender;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -54,10 +56,14 @@ class GuardianAuthController extends Controller
                 'expires_at' => now()->addMinutes(GuardianOtp::TTL_MINUTES),
             ]);
 
-            // No SMS provider yet. Pre-launch the code is handed back in the
-            // response so the app can fill it in; the log line stays for
-            // debugging. Both go away once a provider is wired.
-            Log::info('Guardian OTP issued', ['phone' => $data['phone'], 'code' => $code]);
+            // With the WhatsApp gateway wired the code travels there and never
+            // touches the log. Without it, the log line is the only way to
+            // read the code while debugging.
+            if (WhatsAppSender::isConfigured()) {
+                SendGuardianOtp::dispatch($guardian, $code);
+            } else {
+                Log::info('Guardian OTP issued', ['phone' => $data['phone'], 'code' => $code]);
+            }
 
             if (config('services.guardian_auth.expose_code')) {
                 return response()->json([

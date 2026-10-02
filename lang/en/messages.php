@@ -279,6 +279,7 @@ return [
         'code_sent' => 'If the number is registered, a verification code has been sent.',
         'code_invalid' => 'The verification code is incorrect or has expired.',
         'throttled' => 'Too many attempts. Please try again shortly.',
+        'whatsapp_code' => "Your school app sign-in code: :code\nValid for 10 minutes. Do not share it with anyone.",
     ],
     'supervisor_scope' => [
         'added' => 'Supervision scope added.',
