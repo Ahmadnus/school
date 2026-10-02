@@ -144,7 +144,10 @@ class GateAttendanceController extends Controller
         $title = __('notification_keys.gate_arrival').' — '.$student->full_name;
         $body = __('notifications.gate_arrival_body', [
             'name' => $student->first_name,
-            'time' => $scannedAt->format('H:i'),
+            // نصٌّ يقرؤه الأب، فبساعة المدرسة لا بـUTC المخزَّن.
+            'time' => \Illuminate\Support\Carbon::instance($scannedAt)
+                ->setTimezone(config('app.school_timezone'))
+                ->format('H:i'),
         ]);
 
         foreach ($student->guardians as $guardian) {
