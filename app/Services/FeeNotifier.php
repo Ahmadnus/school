@@ -43,9 +43,9 @@ class FeeNotifier
                 'fee_payment_recorded',
                 __('notifications.fee_payment_title', ['name' => $student->full_name]),
                 __('notifications.fee_payment_body', [
-                    'amount' => self::money($payment->amount_minor),
+                    'amount' => self::money($payment->amount_minor, $student->school?->currency),
                     'receipt' => $payment->receipt_number,
-                    'remaining' => self::money($remaining),
+                    'remaining' => self::money($remaining, $student->school?->currency),
                 ]),
                 $plan->id,
                 NotificationApp::Guardian,
@@ -59,13 +59,12 @@ class FeeNotifier
      * The amounts are minor units (`Money`); formatting them anywhere else
      * invites a float to sneak in and turn 2,000,000 into 1,999,999.99.
      */
-    private static function money(Money|int|null $value): string
+    private static function money(Money|int|null $value, ?string $currency = null): string
     {
-        if ($value instanceof Money) {
-            return (string) $value->toDecimal();
-        }
+        $money = $value instanceof Money ? $value : Money::fromMinor((int) ($value ?? 0));
 
-        return (string) Money::fromMinor((int) ($value ?? 0))->toDecimal();
+        // نصٌّ يقرؤه الأب: «500,000 ل.س» لا «500000.00».
+        return $money->forHumans($currency);
     }
 
     /** True when the plan has nothing left to pay — used by the caller's wording. */

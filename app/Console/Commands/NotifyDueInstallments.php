@@ -62,7 +62,7 @@ class NotifyDueInstallments extends Command
 
             $overdue = $installment->isOverdue($today);
             $due = $installment->due_date->format('Y-m-d');
-            $remaining = (string) $installment->remainingAmount()->toDecimal();
+            $remaining = $installment->remainingAmount()->forHumans($student->school?->currency);
 
             foreach ($student->guardians as $guardian) {
                 if (! $guardian->user) {

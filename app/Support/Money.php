@@ -62,6 +62,30 @@ final class Money
         return $sign.intdiv($abs, $unit).'.'.str_pad((string) ($abs % $unit), self::SCALE, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * المبلغ كما يقرؤه إنسانٌ في رسالة: «2,000,000 ل.س».
+     *
+     * `toDecimal` للـAPI والتطبيق ينسّقه بنفسه؛ أمّا نصّ الإشعار فيصل كما
+     * كُتب، وكان يصل «2000000.00» — رقمٌ يُعدّ أصفاره بالإصبع.
+     */
+    public function forHumans(?string $currency = null): string
+    {
+        $unit = 10 ** self::SCALE;
+        $abs = abs($this->minor);
+        $fraction = $abs % $unit;
+
+        $number = number_format(intdiv($abs, $unit))
+            .($fraction === 0 ? '' : '.'.rtrim(str_pad((string) $fraction, self::SCALE, '0', STR_PAD_LEFT), '0'));
+
+        $symbol = match (strtoupper((string) $currency)) {
+            'SYP' => 'ل.س',
+            '' => '',
+            default => strtoupper((string) $currency),
+        };
+
+        return ($this->minor < 0 ? '-' : '').$number.($symbol === '' ? '' : ' '.$symbol);
+    }
+
     public function plus(self $other): self
     {
         return new self($this->minor + $other->minor);

@@ -101,7 +101,7 @@ class FeeReminderController extends Controller
                         __('notifications.fee_due_title', ['name' => $student->full_name]),
                         trim(
                             __('notifications.fee_reminder_body', [
-                                'amount' => (string) $remaining->toDecimal(),
+                                'amount' => $remaining->forHumans($student->school?->currency),
                             ]).' '.($data['note'] ?? ''),
                         ),
                         $student->id,

@@ -198,9 +198,18 @@ class GuardianDigestController extends Controller
 
             $signals = StudentSignals::forStudent($child, $child->school, includeFees: true);
 
-            $attention = collect($signals['signals'])->pluck('detail')->values();
-            if ($nextInstallment && $nextInstallment['overdue']) {
-                $attention->push(__('digest.installment_overdue', ['amount' => $nextInstallment['remaining']]));
+            $overdue = $nextInstallment !== null && $nextInstallment['overdue'];
+
+            // القسط المتأخّر يُقال مرّة واحدة وبمبلغه: كانت إشارة «أقساط
+            // متأخّرة» وسطر القسط يظهران معاً، يكرّر الثاني الأوّل بصيغة أخرى.
+            $attention = collect($signals['signals'])
+                ->reject(fn (array $s) => $overdue && $s['key'] === 'overdue_fees')
+                ->pluck('detail')
+                ->values();
+            if ($overdue) {
+                $attention->push(__('digest.installment_overdue', [
+                    'amount' => $next->remainingAmount()->forHumans($child->school?->currency),
+                ]));
             }
 
             return [
