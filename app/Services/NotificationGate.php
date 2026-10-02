@@ -94,10 +94,6 @@ class NotificationGate
 
         dispatch(new DeliverNotification($notification, $user));
 
-        if ($app === NotificationApp::Guardian) {
-            GuardianWhatsApp::sendToUser($user, $key, $title, $body);
-        }
-
         return $notification;
     }
 }

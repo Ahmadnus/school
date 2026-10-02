@@ -15,7 +15,6 @@ use App\Models\AttendanceRecord;
 use App\Models\GateScan;
 use App\Models\Student;
 use App\Models\StudentCard;
-use App\Services\GuardianWhatsApp;
 use App\Services\NotificationGate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -150,8 +149,6 @@ class GateAttendanceController extends Controller
 
         foreach ($student->guardians as $guardian) {
             if (! $guardian->user) {
-                GuardianWhatsApp::send($guardian, 'gate_arrival', $title, $body);
-
                 continue;
             }
 

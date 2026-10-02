@@ -66,10 +66,7 @@ class AttendanceNotifier
             $body = __('notifications.'.$bodyKey, ['date' => $date, 'section' => $sectionLabel]);
 
             foreach ($student->guardians as $guardian) {
-                // بلا تطبيق: واتساب وحده يصله.
                 if (! $guardian->user) {
-                    GuardianWhatsApp::send($guardian, $key, $title, $body);
-
                     continue;
                 }
 

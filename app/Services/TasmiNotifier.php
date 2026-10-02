@@ -70,14 +70,6 @@ class TasmiNotifier
                 'date' => $date,
             ]);
 
-            // من لم يفتح التطبيق بعد يصله التسميع على واتساب. يبقى في
-            // «لم يسجّل الدخول» لأنّ التطبيق نفسه لم يصله شيء.
-            foreach ($student->guardians as $guardian) {
-                if ($guardian->user === null) {
-                    GuardianWhatsApp::send($guardian, 'tasmi_recorded', $title, $body);
-                }
-            }
-
             $recipients = $student->guardians->filter(fn ($guardian) => $guardian->user !== null);
 
             if ($recipients->isEmpty()) {

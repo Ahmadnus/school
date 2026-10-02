@@ -9,7 +9,6 @@ use App\Http\Requests\StudentProfile\UpdateBehaviorRecordRequest;
 use App\Http\Resources\BehaviorRecordResource;
 use App\Models\BehaviorRecord;
 use App\Models\Student;
-use App\Services\GuardianWhatsApp;
 use App\Services\NotificationGate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -96,10 +95,7 @@ class BehaviorRecordController extends Controller
         $title = $record->type->label().' — '.$record->student->full_name;
 
         foreach ($record->student->guardians as $guardian) {
-            // بلا تطبيق: واتساب وحده يصله.
             if (! $guardian->user) {
-                GuardianWhatsApp::send($guardian, 'behavior_record', $title, $record->title);
-
                 continue;
             }
 
