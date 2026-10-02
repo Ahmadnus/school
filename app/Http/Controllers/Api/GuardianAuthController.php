@@ -66,7 +66,7 @@ class GuardianAuthController extends Controller
             // touches the log. Without it, the log line is the only way to
             // read the code while debugging.
             if (WhatsAppSender::isConfigured()) {
-                SendLoginCode::dispatch(
+                SendLoginCode::for(
                     $guardian->phone,
                     $guardian->school?->phone_country_code ?? '963',
                     $code,

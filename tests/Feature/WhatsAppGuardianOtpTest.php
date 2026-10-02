@@ -64,6 +64,21 @@ class WhatsAppGuardianOtpTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_the_code_is_written_in_the_apps_language_with_the_school_name(): void
+    {
+        // الخادم بالإنجليزية افتراضاً؛ التطبيق يطلب العربية.
+        config()->set('app.locale', 'en');
+        $school = School::factory()->create(['name' => 'المعهد السوري', 'phone_country_code' => '963']);
+        Guardian::factory()->create(['school_id' => $school->id, 'phone' => '0955556001']);
+
+        $this->withHeader('X-Locale', 'ar')
+            ->postJson('/api/guardian/request-code', ['phone' => '0955556001'])
+            ->assertOk();
+
+        Http::assertSent(fn (Request $request) => str_contains($request['text'], 'رمز التحقق')
+            && str_contains($request['text'], 'المعهد السوري'));
+    }
+
     public function test_chat_ids_for_local_and_international_numbers(): void
     {
         $this->assertSame('963955123456@c.us', WhatsAppSender::chatIdFor('0955123456', '963'));

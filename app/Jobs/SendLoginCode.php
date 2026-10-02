@@ -26,7 +26,16 @@ class SendLoginCode implements ShouldQueue, ShouldBeEncrypted
         // الرسالة تُفتتح باسم المدرسة: رمزٌ من رقمٍ لا يعرفه المستلم يُتجاهَل
         // ما لم يقل من أين جاء.
         private readonly string $schoolName = '',
+        // لغة من طلب الرمز. العامل يعمل خارج الطلب، فبلا هذا يكتب بلغة
+        // الخادم الافتراضية — وصلت رسالةٌ إنجليزية لأبٍ تطبيقُه بالعربية.
+        private readonly ?string $locale = null,
     ) {}
+
+    /** يُرسل الرمز بلغة الطلب الجاري. */
+    public static function for(string $phone, string $countryCode, string $code, string $schoolName): void
+    {
+        self::dispatch($phone, $countryCode, $code, $schoolName, app()->getLocale());
+    }
 
     public function handle(): void
     {
@@ -36,7 +45,7 @@ class SendLoginCode implements ShouldQueue, ShouldBeEncrypted
             __('messages.guardian_auth.whatsapp_code', [
                 'code' => $this->code,
                 'school' => $this->schoolName !== '' ? $this->schoolName : config('app.name'),
-            ]),
+            ], $this->locale),
         );
     }
 }

@@ -53,7 +53,7 @@ class StaffAuthController extends Controller
                 'expires_at' => now()->addMinutes(StaffOtp::TTL_MINUTES),
             ]);
 
-            SendLoginCode::dispatch(
+            SendLoginCode::for(
                 $user->phone,
                 $user->school?->phone_country_code ?? '963',
                 $code,
