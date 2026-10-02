@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class StudentResource extends JsonResource
 {
@@ -19,6 +20,9 @@ class StudentResource extends JsonResource
             'first_name' => $this->first_name,
             'last_name' => $this->last_name,
             'full_name' => $this->full_name,
+            'photo_url' => $this->photo_path
+                ? Storage::disk('public')->url($this->photo_path)
+                : null,
             'birth_date' => $this->birth_date?->toDateString(),
             'gender' => $this->gender?->value,
             'gender_label' => $this->gender?->label(),

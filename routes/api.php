@@ -42,6 +42,7 @@ use App\Http\Controllers\Api\StudentEnrollmentController;
 use App\Http\Controllers\Api\StudentGuardianController;
 use App\Http\Controllers\Api\StudentImportController;
 use App\Http\Controllers\Api\StudentNoteController;
+use App\Http\Controllers\Api\StudentPhotoController;
 use App\Http\Controllers\Api\StudentProfileController;
 use App\Http\Controllers\Api\SubjectController;
 use App\Http\Controllers\Api\SupervisorScopeController;
@@ -125,6 +126,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     // `attention` is not swallowed by `{student}`.
     Route::get('students/attention', [StudentProfileController::class, 'attention']);
     Route::apiResource('students', StudentController::class);
+
+    Route::post('students/{student}/photo', [StudentPhotoController::class, 'store']);
+    Route::delete('students/{student}/photo', [StudentPhotoController::class, 'destroy']);
 
     // --- Student profile: header bundle + the sections behind its buttons ---
     Route::get('students/{student}/profile', [StudentProfileController::class, 'show']);

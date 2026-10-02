@@ -59,6 +59,8 @@ return [
         'created' => 'Student created.',
         'updated' => 'Student updated.',
         'deleted' => 'Student deleted.',
+        'photo_updated' => 'Student photo updated.',
+        'photo_removed' => 'Student photo removed.',
     ],
     'student_note' => [
         'created' => 'Note added.',

@@ -388,6 +388,7 @@ return [
         'visible_to_guardian' => 'visible to guardian',
         'website' => 'website',
         'code_otp' => 'code otp',
+        'photo' => 'photo',
     ],
 
 ];
