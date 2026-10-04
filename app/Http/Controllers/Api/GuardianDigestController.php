@@ -4,8 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\AttendanceStatus;
 use App\Enums\ConversationStatus;
+use App\Enums\TargetScope;
+use App\Enums\Weekday;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\SchoolResource;
 use App\Http\Resources\StudentResource;
+use App\Models\SchoolDayHours;
+use App\Models\User;
+use App\Services\Timetable\TimeRange;
 use App\Models\AttendanceRecord;
 use App\Models\BehaviorRecord;
 use App\Models\Conversation;
@@ -36,6 +42,9 @@ class GuardianDigestController extends Controller
 {
     /** عمر كتلة الأبناء في الكاش — قصيرٌ عمداً: حضورُ اليوم يُسجَّل أثناء الدوام. */
     private const CHILDREN_CACHE_SECONDS = 120;
+
+    /** Post types the guardian app files under «الفعاليات». */
+    public const EVENT_TYPES = ['event', 'trip', 'activity', 'meeting'];
 
     public function show(Request $request): JsonResponse
     {
@@ -190,6 +199,9 @@ class GuardianDigestController extends Controller
                 to: $weekAhead,
                 sectionId: $child->currentEnrollment?->section_id,
                 studentId: $child->id,
+                // Only trips and events that reach this child — not the
+                // titles of every other grade's outings.
+                postIds: PostAudience::postIdsForGuardian($request->user(), $child->id),
             ))->reject(fn (array $e) => $e['type'] === 'period')
                 ->take(6)
                 ->map(fn (array $e) => ['type' => $e['type'], 'date' => $e['date'], 'title' => $e['title']])
@@ -226,6 +238,12 @@ class GuardianDigestController extends Controller
             ];
         })->values()->all());
 
+        // The red counters on the home grid — live, never cached: reading a
+        // post has to clear its badge on the next refresh.
+        foreach ($data as $i => $row) {
+            $data[$i]['unread'] = $this->unreadBadges($user, (int) $row['student']['id']);
+        }
+
         return response()->json([
             'data' => [
                 'week_start' => $weekStart,
@@ -235,5 +253,68 @@ class GuardianDigestController extends Controller
                 'children' => $data,
             ],
         ]);
+    }
+
+    /**
+     * The guardian's view of their school: contact details and working week.
+     *
+     * `school/hours` is a timetable-admin endpoint; this is the read-only slice a
+     * parent needs to call, find, or know when the school is open.
+     */
+    public function school(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user->role->isGuardian(), 403, __('messages.unauthorized'));
+
+        $school = $user->school;
+        $hours = SchoolDayHours::query()
+            ->ofSchool($school->id)
+            ->get()
+            ->keyBy(fn (SchoolDayHours $h) => $h->day_of_week->value);
+
+        return response()->json([
+            'data' => [
+                'school' => (new SchoolResource($school))->resolve($request),
+                'days' => array_map(function (Weekday $day) use ($hours) {
+                    $row = $hours->get($day->value);
+
+                    return [
+                        'day' => $day->value,
+                        'label' => $day->label(),
+                        'working' => (bool) $row,
+                        'starts_at' => $row ? TimeRange::format($row->startMinute()) : null,
+                        'ends_at' => $row ? TimeRange::format($row->endMinute()) : null,
+                    ];
+                }, Weekday::cases()),
+            ],
+        ]);
+    }
+
+    /**
+     * Unread posts of the last 30 days that reach this child, counted by the
+     * home-grid section they open in.
+     *
+     * @return array{all:int, subjects:int, homework:int, notes:int, events:int}
+     */
+    private function unreadBadges(User $user, int $childId): array
+    {
+        $posts = Post::query()
+            ->whereIn('id', PostAudience::postIdsForGuardian($user, $childId))
+            ->where('published_at', '>=', now()->subDays(30))
+            ->whereDoesntHave('receipts', fn ($r) => $r
+                ->where('user_id', $user->id)
+                ->whereNotNull('read_at'))
+            ->with(['type:id,key', 'targets'])
+            ->get(['id', 'post_type_id', 'subject_id']);
+
+        return [
+            'all' => $posts->count(),
+            'subjects' => $posts->whereNotNull('subject_id')->count(),
+            'homework' => $posts->filter(fn (Post $p) => $p->type?->key === 'homework')->count(),
+            'notes' => $posts->filter(fn (Post $p) => $p->targets->contains(
+                fn ($t) => $t->scope === TargetScope::Student && (int) $t->target_id === $childId,
+            ))->count(),
+            'events' => $posts->filter(fn (Post $p) => in_array($p->type?->key, self::EVENT_TYPES, true))->count(),
+        ];
     }
 }

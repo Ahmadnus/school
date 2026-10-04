@@ -23,6 +23,10 @@ class CalendarFeed
     private const DATED_POST_TYPES = ['event', 'trip', 'meeting', 'reminder', 'activity'];
 
     /**
+     * [$postIds] limits dated posts to an allow-list — a guardian's feed only
+     * carries posts that reach their child. Null means every published post.
+     *
+     * @param  Collection<int, int>|null  $postIds
      * @return Collection<int, array{type:string, type_label:string, date:string, title:string, subtitle:?string, ref_id:int, starts_at:?string, ends_at:?string}>
      */
     public static function between(
@@ -31,12 +35,13 @@ class CalendarFeed
         string $to,
         ?int $sectionId = null,
         ?int $studentId = null,
+        ?Collection $postIds = null,
     ): Collection {
         return collect()
             ->merge(self::periods($schoolId, $from, $to, $sectionId))
             ->merge(self::holidays($schoolId, $from, $to))
             ->merge(self::installments($schoolId, $from, $to, $studentId))
-            ->merge(self::posts($schoolId, $from, $to))
+            ->merge(self::posts($schoolId, $from, $to, $postIds))
             ->merge(self::assessments($schoolId, $from, $to, $sectionId))
             ->sortBy(['date', 'starts_at'])
             ->values();
@@ -127,11 +132,12 @@ class CalendarFeed
             ]);
     }
 
-    private static function posts(int $schoolId, string $from, string $to): Collection
+    private static function posts(int $schoolId, string $from, string $to, ?Collection $postIds): Collection
     {
         return Post::query()
             ->ofSchool($schoolId)
             ->published()
+            ->when($postIds !== null, fn ($q) => $q->whereIn('id', $postIds))
             ->whereHas('type', fn ($q) => $q->whereIn('key', self::DATED_POST_TYPES))
             ->whereBetween('published_at', [$from.' 00:00:00', $to.' 23:59:59'])
             ->with('type')

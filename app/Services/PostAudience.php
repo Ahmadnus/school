@@ -128,15 +128,20 @@ class PostAudience
      * The reverse of the fan-out: instead of "who hears about this post", it
      * answers "which posts is this person entitled to see".
      *
+     * With [$studentId] it narrows to what reaches that one child — the
+     * guardian app shows one child at a time. A child that is not theirs
+     * matches nothing, so the answer is empty rather than someone else's feed.
+     *
      * @return Collection<int, int>
      */
-    public static function postIdsForGuardian(User $user): Collection
+    public static function postIdsForGuardian(User $user, ?int $studentId = null): Collection
     {
         $students = Student::query()
             ->whereHas(
                 'guardians',
                 fn ($g) => $g->where('guardians.user_id', $user->id),
             )
+            ->when($studentId !== null, fn ($q) => $q->whereKey($studentId))
             ->with('currentEnrollment.section')
             ->get();
 

@@ -140,6 +140,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 
     // Guardian app: this week for each child, in one call.
     Route::get('guardian/digest', [GuardianDigestController::class, 'show']);
+    Route::get('guardian/school', [GuardianDigestController::class, 'school']);
 
     Route::get('students/{student}/notes', [StudentNoteController::class, 'index']);
     Route::post('students/{student}/notes', [StudentNoteController::class, 'store']);

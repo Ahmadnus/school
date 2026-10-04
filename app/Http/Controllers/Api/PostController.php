@@ -40,8 +40,22 @@ class PostController extends Controller
             // theirs, and nothing else.
             ->when($isGuardian, fn ($q) => $q->published()->whereIn(
                 'id',
-                PostAudience::postIdsForGuardian($user),
+                PostAudience::postIdsForGuardian(
+                    $user,
+                    $request->filled('student_id') ? $request->integer('student_id') : null,
+                ),
             ))
+            // Guardian sections (homework, events…) are a set of type keys;
+            // ids differ per school, keys do not.
+            ->when($request->filled('type_keys'), fn ($q) => $q->whereHas(
+                'type',
+                fn ($t) => $t->whereIn('key', explode(',', $request->string('type_keys')->toString())),
+            ))
+            // "Notes & skills": posts written to this one child, not the class.
+            ->when(
+                $request->boolean('private') && $request->filled('student_id'),
+                fn ($q) => $q->targeting(TargetScope::Student, $request->integer('student_id')),
+            )
             ->when(
                 ! $isGuardian && $request->input('source', 'mine') === 'mine',
                 fn ($q) => $q->where('author_id', $user->id),

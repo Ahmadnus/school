@@ -9,6 +9,7 @@ use App\Models\AbsenceExcuse;
 use App\Models\Attachment;
 use App\Models\Message;
 use App\Models\Post;
+use App\Services\PostAudience;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -89,9 +90,19 @@ class AttachmentController extends Controller
      */
     public function gallery(Request $request): AnonymousResourceCollection
     {
+        $user = $request->user();
+
         $images = Attachment::query()
-            ->ofSchool($request->user()->school_id)
+            ->ofSchool($user->school_id)
             ->images()
+            // A guardian sees images of posts that reach their children, and
+            // nothing else: chat and excuse attachments are other families'.
+            ->when($user->role->isGuardian(), fn ($q) => $q
+                ->where('owner_type', AttachmentOwner::Post->value)
+                ->whereIn('owner_id', PostAudience::postIdsForGuardian(
+                    $user,
+                    $request->filled('student_id') ? $request->integer('student_id') : null,
+                )))
             ->when($request->filled('owner_type'), fn ($q) => $q->where('owner_type', $request->string('owner_type')))
             ->orderByDesc('created_at')
             ->paginate($request->integer('per_page', 30))
