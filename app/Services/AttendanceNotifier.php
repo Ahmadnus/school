@@ -36,7 +36,7 @@ class AttendanceNotifier
         $records = AttendanceRecord::query()
             ->where('section_id', $section->id)
             ->whereDate('date', $date)
-            ->with(['student.guardians.user', 'student.school', 'student.currentEnrollment'])
+            ->with(['student.guardians.user', 'student.guardians.school', 'student.school', 'student.currentEnrollment'])
             ->get();
 
         if ($records->isEmpty()) {
@@ -65,7 +65,16 @@ class AttendanceNotifier
             $title = __('notification_keys.'.$key).' — '.$student->full_name;
             $body = __('notifications.'.$bodyKey, ['date' => $date, 'section' => $sectionLabel]);
 
+            $unexcusedAbsence = $record->status === AttendanceStatus::Absent
+                && ! $excused->has(AttendanceSummary::key($student->id, $date));
+
             foreach ($student->guardians as $guardian) {
+                // الغياب وحده على واتساب، ولوليّ الأمر حتى لو لم يفتح التطبيق
+                // بعد. والغياب بعذرٍ مقبول لا يُبلَّغ: الأهل قدّموا العذر أصلاً.
+                if ($unexcusedAbsence) {
+                    GuardianWhatsApp::absence($guardian, $student, $date, $sectionLabel);
+                }
+
                 if (! $guardian->user) {
                     continue;
                 }
@@ -80,8 +89,7 @@ class AttendanceNotifier
                 );
             }
 
-            if ($record->status === AttendanceStatus::Absent
-                && ! $excused->has(AttendanceSummary::key($student->id, $date))) {
+            if ($unexcusedAbsence) {
                 self::checkThreshold($student, $date, $sectionLabel);
             }
         }

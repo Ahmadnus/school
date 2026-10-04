@@ -48,6 +48,15 @@ return [
         'url' => env('WHATSAPP_API_URL'),
         'key' => env('WHATSAPP_API_KEY'),
         'session' => env('WHATSAPP_SESSION', 'default'),
+        // Absence notices on WhatsApp (alongside the app notification), off
+        // until WHATSAPP_ABSENCE=true so a deploy alone messages nobody. The
+        // only notice that goes out there: a busy gateway number is a banned one.
+        'absence' => (bool) env('WHATSAPP_ABSENCE', false),
+        // Trial mode: when set, notices reach only these numbers (comma list,
+        // any format) and everyone else is skipped. Login codes are untouched.
+        'only_to' => array_values(array_filter(array_map('trim', explode(',', (string) env('WHATSAPP_ONLY_TO', ''))))),
+        // Seconds between two notices from the gateway number.
+        'spacing' => (int) env('WHATSAPP_SPACING', 3),
     ],
 
     'slack' => [

@@ -283,6 +283,13 @@ return [
         'throttled' => 'Too many attempts. Please try again shortly.',
         'whatsapp_code' => "🎓 *:school*\n\nYour sign-in verification code is:\n👉 *:code*\n\n⏱️ This code is valid for 10 minutes.\n⚠️ Do not share this code with anyone, to keep your account private and secure.",
     ],
+    'whatsapp' => [
+        'absence' => "🎓 *:school*
+
+This is to let you know that *:name* was marked absent on :date (:section).
+
+If there is an excuse, you can submit it from the school app.",
+    ],
     'supervisor_scope' => [
         'added' => 'Supervision scope added.',
         'removed' => 'Supervision scope removed.',
