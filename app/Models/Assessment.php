@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Casts\DateOnly;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -37,6 +38,24 @@ class Assessment extends Model
             'weight_percent' => 'decimal:2',
             'published_at' => 'datetime',
         ];
+    }
+
+    /**
+     * وزنٌ فارغ صفرٌ: «بلا وزنٍ خاصّ، فوزن النوع» — وهو ما يعنيه الصفر عند
+     * {@see \App\Services\SubjectGrade}. العمود لا يقبل `null`، وكان تقييمٌ
+     * حُفظ بلا وزن يُرفض بخطأ خادم.
+     */
+    protected function weightPercent(): Attribute
+    {
+        return Attribute::make(set: fn ($value) => $value ?? 0);
+    }
+
+    /** علامةٌ قصوى فارغة لا تمسح القائمة؛ وللتقييم الجديد مئة. */
+    protected function maxScore(): Attribute
+    {
+        return Attribute::make(
+            set: fn ($value, array $attributes) => $value ?? ($attributes['max_score'] ?? 100),
+        );
     }
 
     public function subject(): BelongsTo
