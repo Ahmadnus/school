@@ -128,6 +128,42 @@ class AbsenceWhatsAppTest extends TestCase
         Queue::assertPushed(SendWhatsAppNotice::class, 1);
     }
 
+    public function test_messages_leave_one_by_one_spaced_apart(): void
+    {
+        config()->set('services.whatsapp.spacing', 5);
+        $this->travelTo('2026-10-05 08:00:00');
+
+        // صفٌّ فيه ثلاثة غائبين: ثلاث رسائل، كل واحدة بعد سابقتها بخمس ثوانٍ.
+        $absent = [$this->absent];
+        foreach (range(1, 2) as $_) {
+            $student = Student::factory()->create(['school_id' => $this->absent->school_id]);
+            StudentEnrollment::factory()->create([
+                'student_id' => $student->id,
+                'section_id' => $this->section->id,
+                'academic_year_id' => $this->section->academic_year_id,
+            ]);
+            $guardian = Guardian::factory()->create(['school_id' => $this->absent->school_id]);
+            StudentGuardian::factory()->create(['student_id' => $student->id, 'guardian_id' => $guardian->id]);
+            $absent[] = $student;
+        }
+
+        $this->postJson("/api/sections/{$this->section->id}/attendance", [
+            'date' => '2026-10-05',
+            'records' => array_map(fn (Student $s) => ['student_id' => $s->id, 'status' => 'absent'], $absent),
+            'submit' => true,
+        ])->assertSuccessful();
+
+        $delays = [];
+        Queue::assertPushed(SendWhatsAppNotice::class, function (SendWhatsAppNotice $job) use (&$delays) {
+            $delays[] = $job->delay->getTimestamp() - now()->getTimestamp();
+
+            return true;
+        });
+        sort($delays);
+
+        $this->assertSame([0, 5, 10], $delays);
+    }
+
     public function test_nothing_leaves_when_the_gateway_is_not_configured(): void
     {
         config()->set('services.whatsapp.url', null);
