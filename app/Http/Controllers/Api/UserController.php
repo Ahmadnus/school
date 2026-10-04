@@ -85,6 +85,15 @@ class UserController extends Controller
     {
         $this->authorize('delete', $user);
 
+        // حذف المستخدم يحذف معه (cascade) كل ما نشره وكل رسالة أرسلها — تختفي
+        // واجباتٌ ومحادثاتٌ من عند الأهل. من له أثرٌ يُوقَف ولا يُحذف.
+        if ($user->posts()->exists() || $user->sentMessages()->exists()) {
+            return response()->json([
+                'message' => __('messages.user.has_content'),
+                'data' => ['code' => 'user_has_content'],
+            ], 422);
+        }
+
         $user->delete();
 
         return response()->json(['message' => __('messages.user.deleted')]);

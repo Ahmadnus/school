@@ -14,6 +14,7 @@ return [
         'created' => 'User created.',
         'updated' => 'User updated.',
         'deleted' => 'User deleted.',
+        'has_content' => 'This user has posts or messages, and deleting them would remove those for families too. Deactivate the account instead.',
     ],
     'device_token' => [
         'registered' => 'Device registered for notifications.',

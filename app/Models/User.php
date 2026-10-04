@@ -97,6 +97,18 @@ class User extends Authenticatable
         return $this->hasMany(Notification::class);
     }
 
+    /** ما نشره — يُحذف معه (cascade)، فوجوده يمنع حذف المستخدم. */
+    public function posts(): HasMany
+    {
+        return $this->hasMany(Post::class, 'author_id');
+    }
+
+    /** رسائله في المحادثات — تُحذف معه (cascade) كذلك. */
+    public function sentMessages(): HasMany
+    {
+        return $this->hasMany(Message::class, 'sender_id');
+    }
+
     public function notificationSettings(): HasMany
     {
         return $this->hasMany(UserNotificationSetting::class);
