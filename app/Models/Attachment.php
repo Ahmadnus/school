@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 /** One polymorphic table for every owner type (decision 12-a). */
 class Attachment extends Model
@@ -30,6 +31,22 @@ class Attachment extends Model
             'owner_type' => AttachmentOwner::class,
             'size' => 'integer',
         ];
+    }
+
+    /**
+     * حذف المرفق يحذف ملفّه: الملف في `storage/app/public` ورابطه عامّ، فصورة
+     * طفلٍ «محذوفة» كانت تبقى مفتوحةً لمن يملك الرابط.
+     *
+     * للحذف الواحد وحده: `PurgeConversations` يحذف بالجملة (بلا أحداث) ويبقي
+     * الملفات قصداً مع قائمةٍ بمساراتها.
+     */
+    protected static function booted(): void
+    {
+        static::deleted(function (Attachment $attachment): void {
+            if (filled($attachment->path)) {
+                Storage::disk('public')->delete($attachment->path);
+            }
+        });
     }
 
     public function uploader(): BelongsTo
