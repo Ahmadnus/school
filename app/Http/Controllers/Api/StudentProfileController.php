@@ -50,6 +50,7 @@ class StudentProfileController extends Controller
             'view_behavior' => $user->can('viewBehavior', $student),
             'manage_behavior' => $user->can('manageBehavior', $student),
             'view_fees' => $user->can('viewFees', $student),
+            'view_personal' => $user->can('viewPersonal', $student),
             'manage_fees' => $user->can('create', FeePlan::class)
                 && $user->school_id === $student->school_id,
             'review_excuses' => $user->role->isAdministrative(),
@@ -100,7 +101,7 @@ class StudentProfileController extends Controller
                 'student' => new StudentResource($student),
                 'permissions' => $permissions,
                 'counts' => [
-                    'guardians' => $student->guardians->count(),
+                    'guardians' => $user->can('viewPersonal', $student) ? $student->guardians->count() : null,
                     'enrollments' => $student->enrollments()->count(),
                     'notes' => $permissions['view_notes'] ? $student->notes()->count() : null,
                     'behavior' => $permissions['view_behavior']
@@ -308,7 +309,8 @@ class StudentProfileController extends Controller
     /** Every phone number that matters for this student, ready to dial. */
     public function contacts(Request $request, Student $student): JsonResponse
     {
-        $this->authorize('view', $student);
+        // أرقام العائلة والطوارئ من الملف الشخصيّ — لا تصل الأستاذ.
+        $this->authorize('viewPersonal', $student);
 
         $contacts = [];
 

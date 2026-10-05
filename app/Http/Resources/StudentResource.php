@@ -12,6 +12,11 @@ class StudentResource extends JsonResource
     {
         $enrollment = $this->whenLoaded('currentEnrollment');
 
+        // الملف الشخصيّ للإدارة ولوليّ أمر الطالب وحدهما (StudentPolicy::viewPersonal).
+        // بلا مستخدم (إشعار، كاش، أمر طرفيّ) يُرسل كاملاً كما كان.
+        $user = $request->user();
+        $personal = $user === null || $user->can('viewPersonal', $this->resource);
+
         return [
             'id' => $this->id,
             'school_id' => $this->school_id,
@@ -23,19 +28,21 @@ class StudentResource extends JsonResource
             'photo_url' => $this->photo_path
                 ? Storage::disk('public')->url($this->photo_path)
                 : null,
-            'birth_date' => $this->birth_date?->toDateString(),
             'gender' => $this->gender?->value,
             'gender_label' => $this->gender?->label(),
-            'nationality' => $this->nationality,
-            'blood_type' => $this->blood_type,
-            'address' => $this->address,
-            'building' => $this->building,
-            'medical_notes' => $this->medical_notes,
-            'phone' => $this->phone,
-            'email' => $this->email,
-            'emergency_contact_name' => $this->emergency_contact_name,
-            'emergency_contact_phone' => $this->emergency_contact_phone,
-            'emergency_contact_relation' => $this->emergency_contact_relation,
+            $this->mergeWhen($personal, fn () => [
+                'birth_date' => $this->birth_date?->toDateString(),
+                'nationality' => $this->nationality,
+                'blood_type' => $this->blood_type,
+                'address' => $this->address,
+                'building' => $this->building,
+                'medical_notes' => $this->medical_notes,
+                'phone' => $this->phone,
+                'email' => $this->email,
+                'emergency_contact_name' => $this->emergency_contact_name,
+                'emergency_contact_phone' => $this->emergency_contact_phone,
+                'emergency_contact_relation' => $this->emergency_contact_relation,
+            ]),
             'status' => $this->status->value,
             'status_label' => $this->status->label(),
 
@@ -47,7 +54,10 @@ class StudentResource extends JsonResource
                     : null,
             ),
             'enrollments' => StudentEnrollmentResource::collection($this->whenLoaded('enrollments')),
-            'guardians' => GuardianResource::collection($this->whenLoaded('guardians')),
+            'guardians' => $this->when(
+                $personal,
+                fn () => GuardianResource::collection($this->whenLoaded('guardians')),
+            ),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

@@ -17,7 +17,8 @@ class StudentGuardianController extends Controller
 {
     public function index(Student $student): AnonymousResourceCollection
     {
-        $this->authorize('view', $student);
+        // العائلة وأرقامها من الملف الشخصيّ (StudentPolicy::viewPersonal).
+        $this->authorize('viewPersonal', $student);
 
         return GuardianResource::collection(
             $student->guardians()->orderByPivot('is_primary', 'desc')->orderBy('name')->get(),

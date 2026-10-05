@@ -11,7 +11,8 @@ use App\Policies\Concerns\ManagesSchoolResource;
  * Who may see what on a student.
  *
  * - Administrative roles: everything in their school.
- * - Teachers: the roster and academic/attendance/behaviour data; no money.
+ * - Teachers: the roster and academic/attendance/behaviour data; no money,
+ *   and no personal file (birth date, address, health, phones, family).
  * - Drivers: the roster only (they need names for transport), nothing else.
  * - Guardians: their own children only, and only what the school shares —
  *   never internal notes, only behaviour records flagged visible_to_guardian.
@@ -80,6 +81,24 @@ class StudentPolicy
 
     /** An excuse is filed by the office or by the child's own guardian. */
     public function submitExcuse(User $user, Student $student): bool
+    {
+        if (! $this->belongsToSchoolOf($user, $student->school_id)) {
+            return false;
+        }
+
+        if ($user->role->isAdministrative()) {
+            return true;
+        }
+
+        return $user->role->isGuardian() && $student->isGuardedBy($user);
+    }
+
+    /**
+     * The personal file: birth date, address, health, phones, emergency
+     * contacts and the family. The office and the child's own guardian — not a
+     * teacher, who teaches the child and needs the name, section and record.
+     */
+    public function viewPersonal(User $user, Student $student): bool
     {
         if (! $this->belongsToSchoolOf($user, $student->school_id)) {
             return false;

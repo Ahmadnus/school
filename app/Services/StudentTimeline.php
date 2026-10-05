@@ -37,7 +37,9 @@ class StudentTimeline
         $allowed = collect(self::TYPES)
             ->when($types !== [], fn ($c) => $c->intersect($types))
             ->reject(fn (string $t) => ($t === 'note' && ! $viewer->can('viewNotes', $student))
-                || ($t === 'payment' && ! $viewer->can('viewFees', $student)))
+                || ($t === 'payment' && ! $viewer->can('viewFees', $student))
+                // ربط وليّ أمرٍ حدثٌ من الملف الشخصيّ.
+                || ($t === 'guardian' && ! $viewer->can('viewPersonal', $student)))
             ->values();
 
         $events = collect();
