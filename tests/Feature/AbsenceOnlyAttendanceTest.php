@@ -79,15 +79,30 @@ class AbsenceOnlyAttendanceTest extends TestCase
         ])->assertSuccessful();
     }
 
-    public function test_only_the_absence_is_written(): void
+    public function test_every_status_is_written_presence_included(): void
     {
         $this->submit('2026-09-01');
 
-        $this->assertSame(1, AttendanceRecord::count());
-        $this->assertSame(
-            $this->absent->id,
-            AttendanceRecord::firstOrFail()->student_id,
-        );
+        // الحضور سجلٌّ كالغياب: التقارير وصحّة الصفوف تقرأ السجلّات.
+        $this->assertSame(2, AttendanceRecord::count());
+        $this->assertSame('present', AttendanceRecord::where('student_id', $this->present->id)->value('status')->value);
+        $this->assertSame('absent', AttendanceRecord::where('student_id', $this->absent->id)->value('status')->value);
+    }
+
+    public function test_a_day_from_before_presence_was_written_still_counts(): void
+    {
+        // يومٌ قديم: جلسةٌ مسلَّمة بلا سجلّ للحاضر (كما كان يُحفظ قبل
+        // التغيير). يُستدلّ عليه حضوراً، ويُضاف إلى يومٍ جديد مكتوب.
+        AttendanceSession::factory()->create([
+            'section_id' => $this->section->id,
+            'date' => '2026-08-31',
+            'status' => AttendanceSessionStatus::Submitted,
+        ]);
+        $this->submit('2026-09-01');
+
+        $summary = StudentAttendanceSummary::for($this->present);
+        $this->assertSame(2, $summary['present']);
+        $this->assertSame(2, $summary['recorded']);
     }
 
     public function test_the_present_student_is_counted_from_the_session(): void
@@ -139,20 +154,21 @@ class AbsenceOnlyAttendanceTest extends TestCase
         $this->assertSame(0, StudentAttendanceSummary::for($this->present)['recorded']);
     }
 
-    public function test_correcting_an_absence_to_present_removes_the_mark(): void
+    public function test_correcting_an_absence_to_present_replaces_the_mark(): void
     {
         $this->submit('2026-09-01');
-        $this->assertSame(1, AttendanceRecord::count());
 
-        // المعلّم صحّح: الطالب كان حاضراً. الوسم يجب أن يزول لا أن يُكتب فوقه.
+        // المعلّم صحّح: الطالب كان حاضراً. الحالة الجديدة تحلّ محلّ الغياب.
         $this->postJson("/api/sections/{$this->section->id}/attendance", [
             'date' => '2026-09-01',
             'records' => [['student_id' => $this->absent->id, 'status' => 'present']],
             'submit' => true,
         ])->assertSuccessful();
 
-        $this->assertSame(0, AttendanceRecord::count());
-        $this->assertSame(1, StudentAttendanceSummary::for($this->absent)['present']);
+        $this->assertSame('present', AttendanceRecord::where('student_id', $this->absent->id)->value('status')->value);
+        $summary = StudentAttendanceSummary::for($this->absent);
+        $this->assertSame(1, $summary['present']);
+        $this->assertSame(0, $summary['absent']);
     }
 
     public function test_families_hear_about_absence_not_about_presence(): void

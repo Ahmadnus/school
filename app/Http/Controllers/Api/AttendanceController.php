@@ -71,12 +71,13 @@ class AttendanceController extends Controller
                 'date' => $date,
                 'session' => $session ? new AttendanceSessionResource($session) : null,
                 'total_students' => $students->count(),
-                // الحاضرون = المسجَّلون في الشعبة ناقص من كُتب له سجلّ.
-                // جمعُ الحالات من الصفوف وحدها كان سيُظهر «حاضر: صفر» بعد
-                // أن صار الحضور لا يُكتب.
+                // الحاضرون = المسجَّلون في الشعبة ناقص الغائبين والمتأخّرين:
+                // من لم يُؤشَّر بعد يُعرض حاضراً في الكشف، وأيّام ما قبل كتابة
+                // الحضور سجلّاً ليس لحاضريها صفّ.
                 'summary' => [
                     ...AttendanceSummary::for($records),
-                    'present' => max(0, $students->count() - $records->count()),
+                    'present' => max(0, $students->count() - $records
+                        ->where('status', '!=', AttendanceStatus::Present)->count()),
                 ],
                 'rows' => $students->map(fn (Student $student) => [
                     'student' => new StudentResource($student),
@@ -103,22 +104,11 @@ class AttendanceController extends Controller
 
         DB::transaction(function () use ($request, $section, $date) {
             foreach ($request->input('records') as $row) {
-                // الحضور لا يُكتب: وجود الطالب في جلسةٍ مُسلَّمة بلا سجلّ
-                // **هو** حضوره. تسجيله كان يعني صفّاً لكل طالب كل يوم —
-                // أربعةً وخمسين ألف صفّ في السنة، خمسةٌ وتسعون بالمئة منها
-                // بلا معلومة، ومثلها إشعارات تقول «ابنك حضر».
-                //
-                // والسجلّ القديم يُحذف عند التصحيح: من وُسم غائباً ثم صحّحه
-                // المعلّم يجب أن يزول وسمُه، لا أن يبقى وتُكتب فوقه حالة.
-                if ($row['status'] === AttendanceStatus::Present->value) {
-                    AttendanceRecord::query()
-                        ->where('student_id', $row['student_id'])
-                        ->where('date', $date)
-                        ->delete();
-
-                    continue;
-                }
-
+                // كل حالةٍ تُكتب سجلّاً، الحضور منها: التقارير وصحّة الصفوف
+                // وملف الطالب تقرأ السجلّات، وحضورٌ بلا سجلّ كان يظهر فيها
+                // صفراً. والتصحيح (غائب ← حاضر) يكتب الحالة الجديدة فوق
+                // القديمة. أمّا الإشعار فللغياب والتأخّر وحدهما
+                // (AttendanceNotifier) — لا «ابنك حضر» كل يوم.
                 AttendanceRecord::updateOrCreate(
                     ['student_id' => $row['student_id'], 'date' => $date],
                     [

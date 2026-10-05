@@ -48,10 +48,14 @@ class AttendanceNotifier
         $sectionLabel = trim(($placement->grade?->name ?? '').' - '.$section->name, ' -');
 
         foreach ($records as $record) {
+            // الحضور يُكتب سجلّاً ولا يُبلَّغ: «ابنك حضر» كل يوم يُدرّب
+            // وليّ الأمر على تجاهل إشعارات المدرسة فيفوته الغياب حين يأتي.
+            if ($record->status === AttendanceStatus::Present) {
+                continue;
+            }
+
             $student = $record->student;
             $key = match ($record->status) {
-                // لا يصل هنا: الحضور لا يُكتب سجلّاً. تبقى الحالة مذكورة
-                // لأن `match` يجب أن يستوفي النوع، ولسجلّات قديمة محفوظة.
                 AttendanceStatus::Present => 'attendance_present',
                 AttendanceStatus::Late => 'attendance_late',
                 AttendanceStatus::Absent => 'attendance_absence',

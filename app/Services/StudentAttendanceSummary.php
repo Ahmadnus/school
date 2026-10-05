@@ -7,17 +7,18 @@ use App\Models\AttendanceRecord;
 use App\Models\AttendanceSession;
 use App\Models\Student;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 /**
  * The attendance summary shown at the top of a student's profile.
  *
- * الحضور لا يُخزَّن: تُكتب الغيابات والتأخّرات وحدها، ويُستدلّ على الحضور
- * بالطرح — يومٌ سُلِّم فيه كشف الشعبة ولم يُكتب فيه للطالب سجلّ هو يوم حضور.
- * وهذا ما يجعل أيام الحضور مجّانيةً في التخزين وفي الإشعارات معاً.
+ * الحضور يُكتب سجلّاً منذ ٢٠٢٦-١٠-٠٥. قبلها كانت الغيابات والتأخّرات وحدها
+ * تُكتب، ويُستدلّ على الحضور بالطرح. فالحاضر هنا = سجلّات «حاضر» + أيّامٌ
+ * سُلِّم فيها كشف الشعبة ولا سجلّ فيها للطالب (أيّام ما قبل التغيير). ولا
+ * يُعدّ يومٌ مرّتين: يومٌ له سجلّ لا يدخل في الاستدلال.
  *
- * ولهذا يُعدّ «المسجَّل» من الجلسات المسلَّمة لا من الصفوف: لولا ذلك لما
- * أمكن التفريق بين «حاضر» و«لم يُؤخذ الحضور أصلاً» — والفرق بينهما نسبةُ
- * حضورٍ تُعلَّق على طالب.
+ * ويوم بلا جلسةٍ مسلَّمة ولا سجلّ لا يُحسب لأحد: «لم يُؤخذ الحضور» ليس
+ * «حاضراً» — والفرق بينهما نسبةُ حضورٍ تُعلَّق على طالب.
  *
  * "excused" is derived from an accepted excuse covering the day (decision
  * 4-a). Two rates are returned:
@@ -47,20 +48,22 @@ class StudentAttendanceSummary
         // الجلسات المسلَّمة لشُعَب الطالب، بالمرشّحات نفسها: الإغلاق يعمل
         // على `date` و`section_id` و`section.academic_year_id`، وثلاثتها
         // أعمدةٌ في الجلسة كما في السجلّ.
-        $sessions = AttendanceSession::query()
+        $sessionDays = AttendanceSession::query()
             ->where('status', AttendanceSessionStatus::Submitted)
             ->whereIn('section_id', $student->enrollments()->pluck('section_id'))
             ->when($constrain !== null, $constrain ?? fn () => null)
-            ->count();
+            ->pluck('date')
+            ->map(fn ($d) => Carbon::parse($d)->toDateString())
+            ->unique();
+        $recordDays = $records->map(fn ($r) => Carbon::parse($r->date)->toDateString())->unique();
 
         $late = $base['late'];
         $absent = $base['excused'] + $base['unexcused'];
 
-        // `max` حارس لا تجميل: سجلٌّ في يومٍ لم تُسلَّم جلسته (إدخال يدويّ
-        // قديم) كان سيُنتج حضوراً سالباً.
-        $present = max(0, $sessions - $late - $absent);
+        // حاضرٌ مكتوب + حاضرٌ مستدلّ عليه من يومٍ مسلَّم بلا سجلّ.
+        $present = $base['present'] + $sessionDays->diff($recordDays)->count();
 
-        $recorded = max($sessions, $late + $absent);
+        $recorded = $present + $late + $absent;
         $attended = $present + $late;
         $judged = $recorded - $base['excused'];
 

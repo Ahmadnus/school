@@ -98,13 +98,15 @@ class AttendanceSheetPerDayTest extends TestCase
         $this->submit('2026-09-25');
 
         $sheet = $this->sheet('2026-09-25');
-        $marked = array_values(array_filter(
+        $absent = array_values(array_filter(
             $sheet['rows'],
-            fn (array $row) => $row['record'] !== null,
+            fn (array $row) => ($row['record']['status'] ?? null) === 'absent',
         ));
 
-        $this->assertCount(1, $marked);
-        $this->assertSame($this->absent->id, $marked[0]['student']['id']);
+        // كل طالبٍ له سجلّ في يومه، والغائب وحده غائب.
+        $this->assertCount(2, array_filter($sheet['rows'], fn (array $row) => $row['record'] !== null));
+        $this->assertCount(1, $absent);
+        $this->assertSame($this->absent->id, $absent[0]['student']['id']);
     }
 
     public function test_a_submitted_sheet_says_so(): void
@@ -132,12 +134,14 @@ class AttendanceSheetPerDayTest extends TestCase
         ])->assertSuccessful();
 
         $sheet = $this->sheet('2026-09-25');
-        $marked = array_filter(
+        $absent = array_filter(
             $sheet['rows'],
-            fn (array $row) => $row['record'] !== null,
+            fn (array $row) => ($row['record']['status'] ?? null) === 'absent',
         );
 
-        $this->assertSame([], array_values($marked));
+        $this->assertSame([], array_values($absent));
         $this->assertSame(2, $sheet['summary']['present']);
+        // تصحيحٌ لا تكرار: سجلٌّ واحد لكل طالبٍ في اليوم.
+        $this->assertSame(2, \App\Models\AttendanceRecord::query()->whereDate('date', '2026-09-25')->count());
     }
 }

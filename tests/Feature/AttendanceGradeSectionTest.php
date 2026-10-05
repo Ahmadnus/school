@@ -273,7 +273,7 @@ class AttendanceGradeSectionTest extends TestCase
     // -------------------------------------------- exception model preserved
 
     /** الحاضر لا سجلّ له — نموذج الاستثناء لم يتغيّر. */
-    public function test_present_students_still_leave_no_record(): void
+    public function test_present_students_are_recorded_too(): void
     {
         Sanctum::actingAs($this->teacher);
 
@@ -284,17 +284,21 @@ class AttendanceGradeSectionTest extends TestCase
             'submit' => true,
         ])->assertOk();
 
-        $this->assertDatabaseCount('attendance_records', 0);
+        // الحضور سجلٌّ كالغياب (منذ ٢٠٢٦-١٠-٠٥) — بلا إشعار.
+        $this->assertDatabaseHas('attendance_records', [
+            'student_id' => $this->ninthStudent->id,
+            'status' => 'present',
+        ]);
 
-        // والجلسة تبقى مأخوذة: يومٌ بلا غياب يومٌ سُجّل.
+        // والجلسة مأخوذة: يومٌ بلا غياب يومٌ سُجّل.
         $this->assertDatabaseHas('attendance_sessions', [
             'section_id' => $this->ninthA->id,
             'status' => 'submitted',
         ]);
     }
 
-    /** والتصحيح إلى «حاضر» يحذف السجلّ بدل أن يكتب فوقه. */
-    public function test_correcting_an_absence_to_present_deletes_the_record(): void
+    /** والتصحيح إلى «حاضر» يكتب الحالة الجديدة فوق القديمة، بلا صفٍّ ثانٍ. */
+    public function test_correcting_an_absence_to_present_overwrites_the_record(): void
     {
         Sanctum::actingAs($this->teacher);
         $date = now()->toDateString();
@@ -311,7 +315,11 @@ class AttendanceGradeSectionTest extends TestCase
             'records' => [['student_id' => $this->ninthStudent->id, 'status' => 'present']],
         ])->assertOk();
 
-        $this->assertDatabaseCount('attendance_records', 0);
+        $this->assertDatabaseCount('attendance_records', 1);
+        $this->assertDatabaseHas('attendance_records', [
+            'student_id' => $this->ninthStudent->id,
+            'status' => 'present',
+        ]);
     }
 
     /** والحاضرون يُحسَبون بالطرح: طلاب الشعبة ناقص السجلّات. */
