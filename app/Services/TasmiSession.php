@@ -37,6 +37,9 @@ class TasmiSession
     /** اسم نوع التقييم في كل مدرسة. */
     public const TYPE_NAME = 'تسميع';
 
+    /** العلامة القصوى لجلسة تسميعٍ جديدة: من عشرة. */
+    public const DEFAULT_MAX = 10;
+
     /** وزنه من العلامة النهائية `null`: يتقاسم ما تبقّى، فلا يقلب أوزاناً قائمة. */
     public static function type(int $schoolId): AssessmentType
     {
@@ -84,7 +87,7 @@ class TasmiSession
                 'assessment_type_id' => $type->id,
                 'held_on' => $heldOn->toDateString(),
                 'created_by' => $teacher->id,
-                'max_score' => $maxScore ?? 100,
+                'max_score' => $maxScore ?? self::DEFAULT_MAX,
                 'weight_percent' => 0,
             ],
         );

@@ -69,7 +69,7 @@ class StoreTasmiRequest extends FormRequest
                 return;
             }
 
-            $max = (float) ($this->input('max_score') ?? 100);
+            $max = (float) ($this->input('max_score') ?? \App\Services\TasmiSession::DEFAULT_MAX);
 
             // 3. الدرجة داخل حدّها — يُفحَص هنا لأن الحدّ يأتي في الطلب نفسه.
             foreach ($this->input('entries', []) as $index => $entry) {

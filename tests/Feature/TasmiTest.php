@@ -146,15 +146,31 @@ class TasmiTest extends TestCase
 
     // --------------------------------------------------------------- creation
 
+    /** جلسة التسميع الجديدة من عشرة، وما فوق العشرة يُرفض. */
+    public function test_a_new_session_is_marked_out_of_ten(): void
+    {
+        Sanctum::actingAs($this->teacher);
+
+        $this->postJson('/api/tasmi', $this->payload([
+            ['student_id' => $this->students['A']->id, 'score' => 9],
+        ]))->assertOk();
+        $this->assertEquals(10, Assessment::query()->latest('id')->value('max_score'));
+
+        $this->postJson('/api/tasmi', $this->payload(
+            [['student_id' => $this->students['C']->id, 'score' => 11]],
+            ['held_on' => '2026-09-28'],
+        ))->assertStatus(422)->assertJsonValidationErrors('entries.0.score');
+    }
+
     /** ينشئ جلسة ويكتب درجات المختارين وحدهم. */
     public function test_it_records_marks_for_selected_students_only(): void
     {
         Sanctum::actingAs($this->teacher);
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 90],
-            ['student_id' => $this->students['C']->id, 'score' => 85],
-            ['student_id' => $this->students['F']->id, 'score' => 70],
+            ['student_id' => $this->students['A']->id, 'score' => 9],
+            ['student_id' => $this->students['C']->id, 'score' => 8.5],
+            ['student_id' => $this->students['F']->id, 'score' => 7],
         ]))->assertOk()->assertJsonPath('data.saved', 3);
 
         $this->assertSame(3, GradeScore::query()->count());
@@ -172,7 +188,7 @@ class TasmiTest extends TestCase
         Sanctum::actingAs($this->teacher);
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 90],
+            ['student_id' => $this->students['A']->id, 'score' => 9],
         ]))->assertOk();
 
         $this->assertDatabaseMissing('grades_scores', [
@@ -200,7 +216,7 @@ class TasmiTest extends TestCase
 
         foreach (['2026-09-27', '2026-09-28'] as $date) {
             $this->postJson('/api/tasmi', $this->payload(
-                [['student_id' => $this->students['A']->id, 'score' => 90]],
+                [['student_id' => $this->students['A']->id, 'score' => 9]],
                 ['held_on' => $date],
             ))->assertOk();
         }
@@ -220,12 +236,12 @@ class TasmiTest extends TestCase
         Sanctum::actingAs($this->teacher);
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 90],
+            ['student_id' => $this->students['A']->id, 'score' => 9],
         ]))->assertOk();
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 90],
-            ['student_id' => $this->students['C']->id, 'score' => 60],
+            ['student_id' => $this->students['A']->id, 'score' => 9],
+            ['student_id' => $this->students['C']->id, 'score' => 6],
         ]))->assertOk();
 
         $this->assertSame(1, Assessment::query()->count());
@@ -238,12 +254,12 @@ class TasmiTest extends TestCase
         Sanctum::actingAs($this->teacher);
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 90],
-            ['student_id' => $this->students['C']->id, 'score' => 60],
+            ['student_id' => $this->students['A']->id, 'score' => 9],
+            ['student_id' => $this->students['C']->id, 'score' => 6],
         ]))->assertOk();
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 90],
+            ['student_id' => $this->students['A']->id, 'score' => 9],
         ]))->assertOk()->assertJsonPath('data.removed', 1);
 
         $this->assertDatabaseMissing('grades_scores', [
@@ -257,16 +273,16 @@ class TasmiTest extends TestCase
         Sanctum::actingAs($this->teacher);
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 90],
+            ['student_id' => $this->students['A']->id, 'score' => 9],
         ]))->assertOk();
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 75],
+            ['student_id' => $this->students['A']->id, 'score' => 7.5],
         ]))->assertOk();
 
         $this->assertSame(1, GradeScore::query()->count());
         $this->assertSame(
-            '75',
+            '7.5',
             TasmiSession::plain(GradeScore::query()->first()->score),
         );
     }
@@ -279,7 +295,7 @@ class TasmiTest extends TestCase
         Sanctum::actingAs($this->teacher);
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 90],
+            ['student_id' => $this->students['A']->id, 'score' => 9],
         ]))->assertOk();
 
         $rows = $this->getJson('/api/tasmi/roster?'.http_build_query([
@@ -292,7 +308,7 @@ class TasmiTest extends TestCase
 
         $byId = collect($rows)->keyBy('student.id');
         $this->assertTrue($byId[$this->students['A']->id]['participating']);
-        $this->assertSame('90', $byId[$this->students['A']->id]['score']);
+        $this->assertSame('9', $byId[$this->students['A']->id]['score']);
         $this->assertFalse($byId[$this->students['B']->id]['participating']);
         $this->assertNull($byId[$this->students['B']->id]['score']);
     }
@@ -316,7 +332,7 @@ class TasmiTest extends TestCase
         Sanctum::actingAs($this->teacher);
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 85],
+            ['student_id' => $this->students['A']->id, 'score' => 8.5],
         ]))->assertOk();
 
         $rows = $this->getJson('/api/tasmi/roster?'.http_build_query([
@@ -328,7 +344,7 @@ class TasmiTest extends TestCase
         $score = collect($rows)->firstWhere('student.id', $this->students['A']->id)['score'];
 
         $this->assertIsNotArray($score);
-        $this->assertSame('85', $score);
+        $this->assertSame('8.5', $score);
     }
 
     // ---------------------------------------------------------- validation
@@ -365,7 +381,7 @@ class TasmiTest extends TestCase
         Sanctum::actingAs($this->teacher);
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $outsider->id, 'score' => 90],
+            ['student_id' => $outsider->id, 'score' => 9],
         ]))
             ->assertStatus(422)
             ->assertJsonValidationErrors('entries.0.student_id');
@@ -405,7 +421,7 @@ class TasmiTest extends TestCase
         Sanctum::actingAs($stranger);
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 90],
+            ['student_id' => $this->students['A']->id, 'score' => 9],
         ]))->assertForbidden();
 
         $this->assertSame(0, Assessment::query()->count());
@@ -417,7 +433,7 @@ class TasmiTest extends TestCase
         Sanctum::actingAs($this->admin);
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 90],
+            ['student_id' => $this->students['A']->id, 'score' => 9],
         ]))->assertOk();
     }
 
@@ -449,7 +465,7 @@ class TasmiTest extends TestCase
         Sanctum::actingAs($this->guardianUser);
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 90],
+            ['student_id' => $this->students['A']->id, 'score' => 9],
         ]))->assertForbidden();
     }
 
@@ -461,7 +477,7 @@ class TasmiTest extends TestCase
         Sanctum::actingAs($this->teacher);
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 85],
+            ['student_id' => $this->students['A']->id, 'score' => 8.5],
         ]))->assertOk()->assertJsonPath('data.notified', 1);
 
         $notification = Notification::query()
@@ -471,8 +487,8 @@ class TasmiTest extends TestCase
 
         $this->assertNotNull($notification);
         $this->assertStringContainsString('قرآن', $notification->title);
-        $this->assertStringContainsString('85', $notification->body);
-        $this->assertStringContainsString('100', $notification->body);
+        $this->assertStringContainsString('8.5', $notification->body);
+        $this->assertStringContainsString('10', $notification->body);
         $this->assertSame($this->students['A']->id, $notification->ref_id);
     }
 
@@ -482,7 +498,7 @@ class TasmiTest extends TestCase
         Sanctum::actingAs($this->teacher);
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 85],
+            ['student_id' => $this->students['A']->id, 'score' => 8.5],
         ]))->assertOk();
 
         $this->assertSame(0, Notification::query()
@@ -497,7 +513,7 @@ class TasmiTest extends TestCase
         Sanctum::actingAs($this->teacher);
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['C']->id, 'score' => 85],
+            ['student_id' => $this->students['C']->id, 'score' => 8.5],
         ]))->assertOk();
 
         $this->assertSame(0, Notification::query()->where('type', 'tasmi_recorded')->count());
@@ -508,7 +524,7 @@ class TasmiTest extends TestCase
     {
         Sanctum::actingAs($this->teacher);
 
-        $body = $this->payload([['student_id' => $this->students['A']->id, 'score' => 85]]);
+        $body = $this->payload([['student_id' => $this->students['A']->id, 'score' => 8.5]]);
 
         $this->postJson('/api/tasmi', $body)->assertOk()->assertJsonPath('data.notified', 1);
         $this->postJson('/api/tasmi', $body)->assertOk()->assertJsonPath('data.notified', 0);
@@ -522,11 +538,11 @@ class TasmiTest extends TestCase
         Sanctum::actingAs($this->teacher);
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 85],
+            ['student_id' => $this->students['A']->id, 'score' => 8.5],
         ]))->assertOk();
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 95],
+            ['student_id' => $this->students['A']->id, 'score' => 9.5],
         ]))->assertOk()->assertJsonPath('data.notified', 1);
 
         $this->assertSame(2, Notification::query()->where('type', 'tasmi_recorded')->count());
@@ -546,7 +562,7 @@ class TasmiTest extends TestCase
         Sanctum::actingAs($this->teacher);
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 85],
+            ['student_id' => $this->students['A']->id, 'score' => 8.5],
         ]))->assertOk()->assertJsonPath('data.notified', 0);
 
         $this->assertSame(0, Notification::query()->where('type', 'tasmi_recorded')->count());
@@ -568,7 +584,7 @@ class TasmiTest extends TestCase
         Sanctum::actingAs($this->teacher);
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $student->id, 'score' => 85],
+            ['student_id' => $student->id, 'score' => 8.5],
         ]))
             ->assertOk()
             ->assertJsonPath('data.notified', 0)
@@ -582,7 +598,7 @@ class TasmiTest extends TestCase
         Sanctum::actingAs($this->teacher);
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['C']->id, 'score' => 85],
+            ['student_id' => $this->students['C']->id, 'score' => 8.5],
         ]))
             ->assertOk()
             ->assertJsonPath('data.notified', 0)
@@ -624,7 +640,7 @@ class TasmiTest extends TestCase
         }
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 40],
+            ['student_id' => $this->students['A']->id, 'score' => 4],
         ]))->assertOk();
 
         $assessments = Assessment::query()
@@ -656,8 +672,8 @@ class TasmiTest extends TestCase
         Sanctum::actingAs($this->teacher);
 
         $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 90],
-            ['student_id' => $this->students['C']->id, 'score' => 80],
+            ['student_id' => $this->students['A']->id, 'score' => 9],
+            ['student_id' => $this->students['C']->id, 'score' => 8],
         ]))->assertOk();
 
         $this->getJson("/api/tasmi?section_id={$this->section->id}")
@@ -674,13 +690,13 @@ class TasmiTest extends TestCase
         Sanctum::actingAs($this->teacher);
 
         $id = $this->postJson('/api/tasmi', $this->payload([
-            ['student_id' => $this->students['A']->id, 'score' => 90],
+            ['student_id' => $this->students['A']->id, 'score' => 9],
         ]))->assertOk()->json('data.id');
 
         $this->getJson("/api/tasmi/{$id}")
             ->assertOk()
             ->assertJsonCount(1, 'data.rows')
-            ->assertJsonPath('data.rows.0.score', '90');
+            ->assertJsonPath('data.rows.0.score', '9');
     }
 
     /** وتقييمٌ ليس تسميعاً لا يُقرأ من مسار التسميع. */

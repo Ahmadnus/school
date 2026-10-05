@@ -110,7 +110,7 @@ class TasmiController extends Controller
                 'held_on' => $heldOn->toDateString(),
                 'max_score' => $assessment->exists
                     ? TasmiSession::plain($assessment->max_score)
-                    : '100',
+                    : (string) TasmiSession::DEFAULT_MAX,
                 'subject' => ['id' => $subject->id, 'name' => $subject->name],
                 'section' => ['id' => $section->id, 'name' => $section->name],
                 'rows' => $rows->map(fn (array $row) => [
