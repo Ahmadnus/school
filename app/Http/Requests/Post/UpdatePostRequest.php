@@ -20,4 +20,13 @@ class UpdatePostRequest extends FormRequest
             'targets.*.target_id' => ['nullable', 'integer'],
         ];
     }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(fn ($validator) => StorePostRequest::rejectUnreachableTargets(
+            $validator,
+            $this->user(),
+            $this->input('targets', []) ?? [],
+        ));
+    }
 }

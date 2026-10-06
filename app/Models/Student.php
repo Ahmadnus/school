@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Casts\DateOnly;
 use App\Enums\Gender;
 use App\Enums\Status;
+use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -189,6 +190,28 @@ class Student extends Model
     public function scopeInSection(Builder $query, int $sectionId): Builder
     {
         return $query->currentYear(fn (Builder $e) => $e->where('section_id', $sectionId));
+    }
+
+    /**
+     * الطلاب الذين يصلهم هذا الحساب — القاعدة نفسها التي في `StudentPolicy`.
+     *
+     * الإدارة والسائق: الكلّ. وليّ الأمر: أولاده. الأستاذ: طلاب شعبه هذه السنة.
+     */
+    public function scopeReachableBy(Builder $query, User $user): Builder
+    {
+        if ($user->role->isGuardian()) {
+            return $query->whereHas('guardians', fn (Builder $g) => $g->where('guardians.user_id', $user->id));
+        }
+
+        if ($user->role === UserRole::Driver) {
+            return $query;
+        }
+
+        $sectionIds = $user->reachableSectionIds();
+
+        return $sectionIds === null
+            ? $query
+            : $query->currentYear(fn (Builder $e) => $e->whereIn('section_id', $sectionIds));
     }
 
     /** Students of a grade, in the active year — via that year's sections. */

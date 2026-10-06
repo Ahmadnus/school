@@ -29,9 +29,19 @@ class GuardianPolicy
         return $user->role->isAdministrative();
     }
 
+    /**
+     * ملفّ وليّ أمر بعينه: اسمه وهاتفه وأولاده.
+     *
+     * للإدارة، ولصاحب الملفّ نفسه. كان مفتوحاً لكلّ من في المدرسة، فيقرأ
+     * أيّ وليّ أمر هاتف عائلةٍ أخرى وأسماء أولادها برقمٍ في الرابط.
+     */
     public function view(User $user, Guardian $guardian): bool
     {
-        return $this->belongsToSchoolOf($user, $guardian->school_id);
+        if (! $this->belongsToSchoolOf($user, $guardian->school_id)) {
+            return false;
+        }
+
+        return $user->role->isAdministrative() || $guardian->user_id === $user->id;
     }
 
     public function update(User $user, Guardian $guardian): bool

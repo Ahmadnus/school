@@ -125,6 +125,7 @@ class GradeController extends Controller
         $students = Student::query()
             ->ofSchool($grade->school_id)
             ->inGrade($grade->id)
+            ->reachableBy($request->user())
             ->with('currentEnrollment.section.grade')
             ->orderBy('first_name')
             ->paginate($request->integer('per_page', 20))

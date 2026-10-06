@@ -17,6 +17,7 @@ use App\Models\Student;
 use App\Models\StudentEnrollment;
 use App\Models\StudentGuardian;
 use App\Models\StudentNote;
+use App\Models\TeacherAssignment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -55,6 +56,8 @@ class StudentTimelineTest extends TestCase
 
         $this->admin = User::factory()->role(UserRole::Admin)->create(['school_id' => $school->id]);
         $this->teacher = User::factory()->role(UserRole::Teacher)->create(['school_id' => $school->id]);
+        // الأستاذ يصل إلى طلاب الشعب التي يدرّسها وحدها.
+        TeacherAssignment::factory()->create(['staff_id' => $this->teacher->id, 'section_id' => $section->id]);
         $this->guardianUser = User::factory()->role(UserRole::Guardian)->create(['school_id' => $school->id]);
         $guardian = Guardian::factory()->create(['school_id' => $school->id, 'user_id' => $this->guardianUser->id]);
         StudentGuardian::factory()->create(['student_id' => $this->child->id, 'guardian_id' => $guardian->id]);

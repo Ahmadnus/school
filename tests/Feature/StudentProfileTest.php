@@ -19,6 +19,7 @@ use App\Models\Student;
 use App\Models\StudentEnrollment;
 use App\Models\StudentGuardian;
 use App\Models\StudentNote;
+use App\Models\TeacherAssignment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -76,6 +77,8 @@ class StudentProfileTest extends TestCase
 
         $this->admin = User::factory()->role(UserRole::Admin)->create(['school_id' => $this->school->id]);
         $this->teacher = User::factory()->role(UserRole::Teacher)->create(['school_id' => $this->school->id]);
+        // الأستاذ يصل إلى طلاب الشعب التي يدرّسها وحدها.
+        TeacherAssignment::factory()->create(['staff_id' => $this->teacher->id, 'section_id' => $this->section->id]);
         $this->driver = User::factory()->role(UserRole::Driver)->create(['school_id' => $this->school->id]);
 
         $this->guardianUser = User::factory()->role(UserRole::Guardian)->create(['school_id' => $this->school->id]);

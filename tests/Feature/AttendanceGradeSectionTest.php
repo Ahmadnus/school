@@ -201,18 +201,16 @@ class AttendanceGradeSectionTest extends TestCase
     // ------------------------------------------------------- authorization
 
     /**
-     * قراءة الكشف تبقى لكل من في المدرسة — صلاحية `view` كما كانت.
-     *
-     * شُدّدت مرّةً إلى `takeAttendance`، فتبيّن على الإنتاج أنّ الإسنادات صفر
-     * فصار كل معلّم ممنوعاً من كل كشف. صلاحيات المعلّم القائمة تُصان، والحفظ
-     * وحده هو المحروس.
+     * كشف شعبةٍ لا يدرّسها الأستاذ مغلقٌ عليه: فيه أسماء أولاد الناس وصورهم
+     * ومن غاب منهم. كان مفتوحاً لأنّ الإنتاج كان بلا إسنادات؛ دخلت الإسنادات
+     * مع الجدول الدراسي فأُغلق.
      */
-    public function test_a_teacher_may_still_read_the_sheet_of_any_section_in_their_school(): void
+    public function test_a_teacher_cannot_read_the_sheet_of_a_section_they_do_not_teach(): void
     {
         Sanctum::actingAs($this->teacher);
 
         $this->getJson("/api/sections/{$this->eleventhA->id}/attendance")
-            ->assertOk();
+            ->assertForbidden();
     }
 
     /**

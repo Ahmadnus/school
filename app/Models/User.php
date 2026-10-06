@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -127,6 +128,43 @@ class User extends Authenticatable
     public function hasRole(UserRole ...$roles): bool
     {
         return in_array($this->role, $roles, true);
+    }
+
+    /**
+     * الشعب التي يصلها هذا الحساب من الكادر: ما يدرّسه وما يشرف عليه.
+     *
+     * `null` يعني «كلّ الشعب» — للإدارة وحدها. فما يقرأ هذه القائمة يرشّح
+     * بها حين تكون قائمةً، ويترك الاستعلام كما هو حين تكون `null`.
+     *
+     * @return Collection<int, int>|null
+     */
+    public function reachableSectionIds(?int $subjectId = null): ?Collection
+    {
+        if ($this->role->isAdministrative()) {
+            return null;
+        }
+
+        $taught = $this->role === UserRole::Teacher
+            ? $this->teacherAssignments()
+                ->when($subjectId, fn ($q) => $q->where('subject_id', $subjectId))
+                ->pluck('section_id')
+            : collect();
+
+        return $taught
+            ->merge($this->supervisedSections()->pluck('sections.id'))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+    }
+
+    /** هل يصل هذا الحساب إلى الشعبة؟ الإدارة تصل إلى كلّ شعبة. */
+    public function reachesSection(?int $sectionId, ?int $subjectId = null): bool
+    {
+        if ($this->role->isAdministrative()) {
+            return true;
+        }
+
+        return $sectionId !== null && $this->reachableSectionIds($subjectId)->contains($sectionId);
     }
 
     public function scopeOfSchool(Builder $query, int $schoolId): Builder

@@ -23,9 +23,13 @@ use App\Models\Term;
 class StudentSubjects
 {
     /**
+     * `$publishedOnly` لوليّ الأمر: العلامة لا تصله قبل أن يضغط الكادر «نشر»
+     * — النشر هو ما يُبلغ الأهل، فما قبله مسوّدة قد تُصحَّح. التسميع وحده
+     * يُستثنى: لا نشر له، ويُبلَغ الأهل به لحظة حفظه.
+     *
      * @return array{enrollment: ?StudentEnrollment, term: ?Term, subjects: array<int, array<string, mixed>>}
      */
-    public static function for(Student $student, ?int $termId = null): array
+    public static function for(Student $student, ?int $termId = null, bool $publishedOnly = false): array
     {
         $enrollment = $student->currentEnrollment()->with('section.grade', 'academicYear')->first();
 
@@ -70,6 +74,9 @@ class StudentSubjects
 
         $assessments = Assessment::query()
             ->whereIn('subject_id', $subjects->pluck('id'))
+            ->when($publishedOnly, fn ($q) => $q->where(fn ($q) => $q
+                ->whereNotNull('published_at')
+                ->orWhereHas('type', fn ($t) => $t->where('name', TasmiSession::TYPE_NAME))))
             ->with('type')
             ->orderBy('id')
             ->get()

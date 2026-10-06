@@ -27,6 +27,22 @@ class SectionPolicy
     }
 
     /**
+     * قائمة طلاب الشعبة وكشف حضورها: أسماء وصور وغيابات أولاد الناس.
+     *
+     * للإدارة، ولمن يدرّس الشعبة أو يشرف عليها، وللسائق (يحتاج الأسماء
+     * للنقل). لا لوليّ الأمر — يرى أولاده من ملفّاتهم لا من قائمة الصفّ —
+     * ولا لأستاذٍ لا شأن له بالشعبة.
+     */
+    public function viewRoster(User $user, Section $section): bool
+    {
+        if (! $this->belongsToSchoolOf($user, $section->grade->school_id)) {
+            return false;
+        }
+
+        return $user->role === UserRole::Driver || $user->reachesSection($section->id);
+    }
+
+    /**
      * Taking attendance is wider than editing the section: administrators
      * anywhere, supervisors within their scope (decision 7-a), and teachers
      * in the sections they actually teach.

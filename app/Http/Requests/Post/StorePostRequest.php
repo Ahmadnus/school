@@ -4,6 +4,8 @@ namespace App\Http\Requests\Post;
 
 use App\Enums\TargetScope;
 use App\Models\Grade;
+use App\Models\Student;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -53,6 +55,30 @@ class StorePostRequest extends FormRequest
                     $validator->errors()->add("targets.$index.target_id", __('messages.post.target_required'));
                 }
             }
+
+            self::rejectUnreachableTargets($validator, $this->user(), $this->input('targets', []));
         });
+    }
+
+    /**
+     * منشورٌ لطالبٍ أو لشعبة يصل إلى أهلها مباشرة، فلا يوجّهه إلّا من يصلهم:
+     * الإدارة إلى أيّ أحد، والأستاذ إلى شعبه وطلابها. الصفّ والمعهد كلّه
+     * يحكمهما `min_role` في نوع المنشور كما كانا.
+     */
+    public static function rejectUnreachableTargets($validator, User $user, array $targets): void
+    {
+        foreach ($targets as $index => $target) {
+            $id = isset($target['target_id']) ? (int) $target['target_id'] : null;
+
+            $reachable = match ($target['scope'] ?? null) {
+                TargetScope::Student->value => ($student = Student::find($id)) !== null && $user->can('view', $student),
+                TargetScope::Section->value => $user->reachesSection($id),
+                default => true,
+            };
+
+            if (! $reachable) {
+                $validator->errors()->add("targets.$index.target_id", __('messages.unauthorized'));
+            }
+        }
     }
 }

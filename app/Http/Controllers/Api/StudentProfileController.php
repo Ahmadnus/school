@@ -257,7 +257,7 @@ class StudentProfileController extends Controller
         $this->authorize('viewAcademic', $student);
 
         $termId = $request->filled('term_id') ? $request->integer('term_id') : null;
-        $result = StudentSubjects::for($student, $termId);
+        $result = StudentSubjects::for($student, $termId, publishedOnly: $request->user()->role->isGuardian());
 
         $terms = $result['enrollment']
             ? Term::query()

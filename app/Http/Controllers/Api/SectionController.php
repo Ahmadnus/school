@@ -111,7 +111,7 @@ class SectionController extends Controller
     /** Students of a section — current academic year only, via the enrollment table. */
     public function students(Request $request, Section $section): AnonymousResourceCollection
     {
-        $this->authorize('view', $section);
+        $this->authorize('viewRoster', $section);
 
         $students = Student::query()
             ->ofSchool($section->grade->school_id)

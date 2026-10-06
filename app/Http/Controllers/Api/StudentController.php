@@ -31,14 +31,9 @@ class StudentController extends Controller
 
         $students = Student::query()
             ->ofSchool($request->user()->school_id)
-            // A guardian sees their own children only, never the school roll.
-            ->when(
-                $request->user()->role->isGuardian(),
-                fn ($q) => $q->whereHas(
-                    'guardians',
-                    fn ($g) => $g->where('guardians.user_id', $request->user()->id),
-                ),
-            )
+            // A guardian sees their own children, a teacher the sections they
+            // teach — never the whole school roll.
+            ->reachableBy($request->user())
             ->when($request->filled('section_id'), fn ($q) => $q->inSection($request->integer('section_id')))
             ->when(
                 $request->filled('grade_id') && ! $request->filled('section_id'),

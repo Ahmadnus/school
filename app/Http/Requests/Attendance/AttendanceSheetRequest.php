@@ -28,7 +28,7 @@ class AttendanceSheetRequest extends FormRequest
         $section = $this->route('section');
 
         return $section !== null
-            && $this->user()?->can('view', $section) === true;
+            && $this->user()?->can('viewRoster', $section) === true;
     }
 
     public function rules(): array

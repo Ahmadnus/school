@@ -3,10 +3,15 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\AcademicYear;
+use App\Models\Grade;
 use App\Models\Guardian;
 use App\Models\School;
+use App\Models\Section;
 use App\Models\Student;
+use App\Models\StudentEnrollment;
 use App\Models\StudentGuardian;
+use App\Models\TeacherAssignment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -41,6 +46,19 @@ class TeacherStudentAccessTest extends TestCase
             'emergency_contact_phone' => '0944000111',
         ]);
         $this->teacher = User::factory()->role(UserRole::Teacher)->create(['school_id' => $this->school->id]);
+
+        // الأستاذ يدرّس شعبة الطالب — وإلّا لم يصله أصلاً.
+        $year = AcademicYear::factory()->current()->create(['school_id' => $this->school->id]);
+        $section = Section::factory()->create([
+            'grade_id' => Grade::factory()->create(['school_id' => $this->school->id])->id,
+            'academic_year_id' => $year->id,
+        ]);
+        StudentEnrollment::factory()->create([
+            'student_id' => $this->student->id,
+            'section_id' => $section->id,
+            'academic_year_id' => $year->id,
+        ]);
+        TeacherAssignment::factory()->create(['staff_id' => $this->teacher->id, 'section_id' => $section->id]);
 
         $this->guardianUser = User::factory()->role(UserRole::Guardian)->create(['school_id' => $this->school->id]);
         $guardian = Guardian::factory()->create(['school_id' => $this->school->id, 'user_id' => $this->guardianUser->id]);

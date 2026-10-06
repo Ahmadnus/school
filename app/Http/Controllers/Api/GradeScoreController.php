@@ -25,7 +25,15 @@ class GradeScoreController extends Controller
     {
         $this->authorize('view', $assessment);
 
+        // كشف العلامات ورقة الكادر: علامات الصفّ كلّه، منشورةً وغير منشورة.
+        // وليّ الأمر يرى علامات أولاده المنشورة من ملفّاتهم.
+        abort_if($request->user()->role->isGuardian(), 403, __('messages.unauthorized'));
+
         $assessment->load('subject.grade');
+
+        // الأستاذ يرى طلاب الشعب التي يدرّس فيها هذه المادة (أو يشرف عليها)
+        // لا الصفّ كلّه.
+        $sectionIds = $request->user()->reachableSectionIds($assessment->subject_id);
 
         $students = Student::query()
             ->ofSchool($assessment->subject->grade->school_id)
@@ -33,6 +41,10 @@ class GradeScoreController extends Controller
                 $request->filled('section_id'),
                 fn ($q) => $q->inSection($request->integer('section_id')),
                 fn ($q) => $q->inGrade($assessment->subject->grade_id),
+            )
+            ->when(
+                $sectionIds !== null,
+                fn ($q) => $q->currentYear(fn ($e) => $e->whereIn('section_id', $sectionIds)),
             )
             ->with('currentEnrollment.section.grade')
             ->orderBy('first_name')
@@ -73,6 +85,21 @@ class GradeScoreController extends Controller
     public function store(StoreScoresRequest $request, Assessment $assessment): JsonResponse
     {
         $this->authorize('score', $assessment);
+
+        // أن يُسنَد إلى الأستاذ تدريس المادة لا يكفي: يجب أن يكون كلّ طالبٍ
+        // في الطلب من شعبةٍ يدرّس فيها هذه المادة. وإلّا كتب أستاذ عربي التاسع
+        // في شعبةٍ علاماتِ طالبٍ في شعبةٍ أخرى لا يدرّسها.
+        $sectionIds = $request->user()->reachableSectionIds($assessment->subject_id);
+
+        if ($sectionIds !== null) {
+            $studentIds = collect($request->input('scores'))->pluck('student_id')->unique();
+            $reachable = Student::query()
+                ->whereKey($studentIds)
+                ->currentYear(fn ($e) => $e->whereIn('section_id', $sectionIds))
+                ->count();
+
+            abort_if($reachable !== $studentIds->count(), 403, __('messages.unauthorized'));
+        }
 
         DB::transaction(function () use ($request, $assessment) {
             foreach ($request->input('scores') as $row) {

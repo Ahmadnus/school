@@ -29,7 +29,24 @@ class StudentPolicy
             return false;
         }
 
-        return $user->role->isGuardian() ? $student->isGuardedBy($user) : true;
+        return $this->reaches($user, $student);
+    }
+
+    /**
+     * مَن يصل إلى هذا الطالب بعينه.
+     *
+     * الإدارة: كلّ طالب. وليّ الأمر: أولاده. السائق: القائمة كلّها (يحتاج
+     * الأسماء للنقل، والقواعد الأكاديمية تستثنيه). الأستاذ: طلاب الشعب التي
+     * يدرّسها أو يشرف عليها — لا طلاب المعهد كلّه.
+     */
+    private function reaches(User $user, Student $student): bool
+    {
+        return match (true) {
+            $user->role->isAdministrative() => true,
+            $user->role->isGuardian() => $student->isGuardedBy($user),
+            $user->role === UserRole::Driver => true,
+            default => $user->reachesSection($student->currentEnrollment()->value('section_id')),
+        };
     }
 
     public function update(User $user, Student $student): bool
@@ -58,7 +75,8 @@ class StudentPolicy
     public function viewNotes(User $user, Student $student): bool
     {
         return $this->belongsToSchoolOf($user, $student->school_id)
-            && in_array($user->role, [UserRole::SuperAdmin, UserRole::Admin, UserRole::Teacher], true);
+            && in_array($user->role, [UserRole::SuperAdmin, UserRole::Admin, UserRole::Teacher], true)
+            && $this->reaches($user, $student);
     }
 
     public function manageNotes(User $user, Student $student): bool
@@ -76,7 +94,8 @@ class StudentPolicy
     public function manageBehavior(User $user, Student $student): bool
     {
         return $this->belongsToSchoolOf($user, $student->school_id)
-            && in_array($user->role, [UserRole::SuperAdmin, UserRole::Admin, UserRole::Teacher], true);
+            && in_array($user->role, [UserRole::SuperAdmin, UserRole::Admin, UserRole::Teacher], true)
+            && $this->reaches($user, $student);
     }
 
     /** An excuse is filed by the office or by the child's own guardian. */
