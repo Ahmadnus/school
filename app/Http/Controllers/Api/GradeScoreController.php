@@ -37,9 +37,10 @@ class GradeScoreController extends Controller
 
         $students = Student::query()
             ->ofSchool($assessment->subject->grade->school_id)
+            // تقييم الشعبة كشفُه طلابها؛ تقييم الصفّ يُرشَّح بشعبةٍ إن طُلبت.
             ->when(
-                $request->filled('section_id'),
-                fn ($q) => $q->inSection($request->integer('section_id')),
+                $assessment->section_id ?? ($request->filled('section_id') ? $request->integer('section_id') : null),
+                fn ($q, int $sectionId) => $q->inSection($sectionId),
                 fn ($q) => $q->inGrade($assessment->subject->grade_id),
             )
             ->when(
@@ -99,6 +100,14 @@ class GradeScoreController extends Controller
                 ->count();
 
             abort_if($reachable !== $studentIds->count(), 403, __('messages.unauthorized'));
+        }
+
+        // تقييم الشعبة لا يُكتب فيه طالبٌ من شعبةٍ أخرى.
+        if ($assessment->section_id !== null) {
+            $studentIds = collect($request->input('scores'))->pluck('student_id')->unique();
+            $inSection = Student::query()->whereKey($studentIds)->inSection($assessment->section_id)->count();
+
+            abort_if($inSection !== $studentIds->count(), 422, __('messages.score.not_in_section'));
         }
 
         DB::transaction(function () use ($request, $assessment) {

@@ -51,7 +51,10 @@ class GradeNotifier
     {
         $assessment->loadMissing(['subject.grade', 'type']);
 
-        $guardians = self::guardiansOfGrade($assessment->subject->grade_id);
+        // تقييم الشعبة يُبلَغ به أهلها وحدهم، لا أهل الصفّ كلّه.
+        $guardians = $assessment->section_id
+            ? self::guardiansWhere(fn ($s) => $s->inSection($assessment->section_id))
+            : self::guardiansWhere(fn ($s) => $s->inGrade($assessment->subject->grade_id));
 
         foreach ($guardians as $user) {
             NotificationGate::notify(
@@ -192,12 +195,12 @@ class GradeNotifier
     }
 
     /** @return Collection<int, User> */
-    private static function guardiansOfGrade(int $gradeId): Collection
+    private static function guardiansWhere(\Closure $students): Collection
     {
         return User::query()
             ->where('role', UserRole::Guardian)
             ->where('status', Status::Active)
-            ->whereHas('guardian.students', fn ($s) => $s->inGrade($gradeId))
+            ->whereHas('guardian.students', $students)
             ->get();
     }
 

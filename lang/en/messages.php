@@ -123,10 +123,12 @@ return [
         'published' => 'Grades published; families and supervisors were notified.',
         'already_published' => 'These grades are already published.',
         'nothing_to_publish' => 'There are no entered grades to publish.',
+        'section_grade_mismatch' => 'This section is not in the subject\'s grade.',
     ],
     'score' => [
         'saved' => 'Scores saved.',
         'not_enrolled' => 'This student is not enrolled in the current academic year.',
+        'not_in_section' => 'A student in this request is not in the assessment\'s section.',
     ],
     'slot' => [
         'created' => 'Period added.',

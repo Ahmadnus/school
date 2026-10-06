@@ -22,7 +22,12 @@ class AssessmentController extends Controller
         $assessments = Assessment::query()
             ->ofSchool($request->user()->school_id)
             ->when($request->filled('subject_id'), fn ($q) => $q->where('subject_id', $request->integer('subject_id')))
-            ->with(['type', 'subject'])
+            ->when($request->filled('section_id'), fn ($q) => $q->where('section_id', $request->integer('section_id')))
+            ->when($request->filled('grade_id'), fn ($q) => $q->whereHas(
+                'subject',
+                fn ($s) => $s->where('grade_id', $request->integer('grade_id')),
+            ))
+            ->with(['type', 'subject.grade', 'section'])
             ->withCount('scores')
             ->orderBy('name')
             ->get();
@@ -41,7 +46,7 @@ class AssessmentController extends Controller
 
         return response()->json([
             'message' => __('messages.assessment.created'),
-            'data' => new AssessmentResource($assessment->load(['type', 'subject'])),
+            'data' => new AssessmentResource($assessment->load(['type', 'subject.grade', 'section'])),
         ], 201);
     }
 
@@ -72,7 +77,7 @@ class AssessmentController extends Controller
 
         return response()->json([
             'message' => __('messages.assessment.published'),
-            'data' => new AssessmentResource($assessment->load(['type', 'subject'])),
+            'data' => new AssessmentResource($assessment->load(['type', 'subject.grade', 'section'])),
         ]);
     }
 
