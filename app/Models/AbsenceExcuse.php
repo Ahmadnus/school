@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Casts\DateOnly;
 use App\Enums\ExcuseStatus;
+use App\Models\Concerns\Audited;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AbsenceExcuse extends Model
 {
-    use HasFactory;
+    use Audited, HasFactory;
 
     protected $fillable = [
         'student_id',

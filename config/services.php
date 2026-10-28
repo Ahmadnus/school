@@ -52,6 +52,11 @@ return [
         // until WHATSAPP_ABSENCE=true so a deploy alone messages nobody. The
         // only notice that goes out there: a busy gateway number is a banned one.
         'absence' => (bool) env('WHATSAPP_ABSENCE', false),
+        // Recitation (tasmi) scores on WhatsApp, off until WHATSAPP_TASMI=true.
+        // WHATSAPP_TASMI_SECTIONS (comma list of section ids) limits it to those
+        // sections — empty means every section.
+        'tasmi' => (bool) env('WHATSAPP_TASMI', false),
+        'tasmi_sections' => array_values(array_filter(array_map('trim', explode(',', (string) env('WHATSAPP_TASMI_SECTIONS', ''))))),
         // Trial mode: when set, notices reach only these numbers (comma list,
         // any format) and everyone else is skipped. Login codes are untouched.
         'only_to' => array_values(array_filter(array_map('trim', explode(',', (string) env('WHATSAPP_ONLY_TO', ''))))),

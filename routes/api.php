@@ -1,17 +1,22 @@
 <?php
 
 use App\Http\Controllers\Api\AbsenceExcuseController;
+use App\Http\Controllers\Api\AccountingController;
 use App\Http\Controllers\Api\AcademicYearController;
+use App\Http\Controllers\Api\AdmissionController;
+use App\Http\Controllers\Api\InventoryController;
 use App\Http\Controllers\Api\AssessmentController;
 use App\Http\Controllers\Api\AssessmentTypeController;
 use App\Http\Controllers\Api\AttachmentController;
 use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BehaviorRecordController;
 use App\Http\Controllers\Api\BulkEnrollmentController;
 use App\Http\Controllers\Api\CalendarController;
 use App\Http\Controllers\Api\ConversationController;
 use App\Http\Controllers\Api\DeviceTokenController;
+use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\FeePaymentController;
 use App\Http\Controllers\Api\FeePlanController;
 use App\Http\Controllers\Api\FeeReminderController;
@@ -23,6 +28,7 @@ use App\Http\Controllers\Api\GuardianAuthController;
 use App\Http\Controllers\Api\GuardianController;
 use App\Http\Controllers\Api\GuardianDigestController;
 use App\Http\Controllers\Api\HolidayController;
+use App\Http\Controllers\Api\HrController;
 use App\Http\Controllers\Api\HonorEntryController;
 use App\Http\Controllers\Api\InsightsController;
 use App\Http\Controllers\Api\MessageableController;
@@ -56,6 +62,10 @@ use App\Http\Controllers\Api\UserPreferenceController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('login', [AuthController::class, 'login'])->middleware('throttle:6,1');
+// Excel export download: authorised by a short-lived signed URL, not a bearer token
+// (the mobile app opens it in the browser).
+Route::get('exports/download', [ExportController::class, 'download'])
+    ->middleware('signed')->name('exports.download');
 // Guardian app sign-in: phone + one-time code. Public, and rate limited
 // because both steps accept an unauthenticated phone number.
 Route::post('guardian/request-code', [GuardianAuthController::class, 'requestCode'])
@@ -94,6 +104,49 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::post('academic-years/{academic_year}/terms', [TermController::class, 'store']);
     Route::post('terms/{term}/current', [TermController::class, 'markCurrent']);
     Route::apiResource('terms', TermController::class)->only(['update', 'destroy']);
+
+    // --- Accounting: non-fee income and expenses, administrators only ---
+    Route::get('accounting/categories', [AccountingController::class, 'categories']);
+    Route::post('accounting/categories', [AccountingController::class, 'storeCategory']);
+    Route::get('accounting/entries', [AccountingController::class, 'entries']);
+    Route::post('accounting/entries', [AccountingController::class, 'store']);
+    Route::post('accounting/entries/{entry}/void', [AccountingController::class, 'void']);
+    Route::get('accounting/summary', [AccountingController::class, 'summary']);
+
+    // --- Admissions: application -> interview -> accept -> enrol ---
+    Route::get('admissions/summary', [AdmissionController::class, 'summary']);
+    Route::get('admissions', [AdmissionController::class, 'index']);
+    Route::post('admissions', [AdmissionController::class, 'store']);
+    Route::put('admissions/{id}', [AdmissionController::class, 'update']);
+    Route::post('admissions/{id}/status', [AdmissionController::class, 'setStatus']);
+    Route::post('admissions/{id}/enroll', [AdmissionController::class, 'enroll']);
+
+    // --- Assets & stock (administrators) ---
+    Route::get('inventory/summary', [InventoryController::class, 'summary']);
+    Route::get('inventory/assets', [InventoryController::class, 'assets']);
+    Route::post('inventory/assets', [InventoryController::class, 'storeAsset']);
+    Route::put('inventory/assets/{id}', [InventoryController::class, 'updateAsset']);
+    Route::get('inventory/items', [InventoryController::class, 'items']);
+    Route::post('inventory/items', [InventoryController::class, 'storeItem']);
+    Route::put('inventory/items/{id}', [InventoryController::class, 'updateItem']);
+    Route::post('inventory/items/{id}/move', [InventoryController::class, 'moveStock']);
+    Route::get('inventory/items/{id}/movements', [InventoryController::class, 'movements']);
+
+    // --- Excel exports (administrators): returns a signed download link ---
+    Route::post('exports', [ExportController::class, 'link']);
+
+    // --- HR: employee profiles, leave, payroll ---
+    Route::get('hr/employees', [HrController::class, 'employees']);
+    Route::put('hr/employees/{user}/profile', [HrController::class, 'saveProfile']);
+    Route::get('hr/leaves', [HrController::class, 'leaves']);
+    Route::post('hr/leaves', [HrController::class, 'requestLeave']);
+    Route::post('hr/leaves/{leave}/decide', [HrController::class, 'decideLeave']);
+    Route::get('hr/payroll', [HrController::class, 'payroll']);
+    Route::post('hr/payroll/pay', [HrController::class, 'paySalary']);
+    Route::post('hr/payroll/{payment}/void', [HrController::class, 'voidSalary']);
+
+    // --- Audit log: read-only, administrators only ---
+    Route::get('audit-logs', [AuditLogController::class, 'index']);
 
     // --- Grades and sections (§2.1) ---
     Route::post('grades/reorder', [GradeController::class, 'reorder']);

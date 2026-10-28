@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Casts\DateOnly;
+use App\Models\Concerns\Audited;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 class AcademicYear extends Model
 {
-    use HasFactory;
+    use Audited, HasFactory;
 
     protected $fillable = ['school_id', 'name', 'start_date', 'end_date', 'is_current'];
 

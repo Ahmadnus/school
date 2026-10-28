@@ -70,6 +70,11 @@ class TasmiNotifier
                 'date' => $date,
             ]);
 
+            // واتساب لكل وليّ أمر له رقم، ولو لم يفتح التطبيق بعد.
+            foreach ($student->guardians as $guardian) {
+                GuardianWhatsApp::tasmi($guardian, $student, $assessment, self::plain($score->score), $max, $date);
+            }
+
             $recipients = $student->guardians->filter(fn ($guardian) => $guardian->user !== null);
 
             if ($recipients->isEmpty()) {

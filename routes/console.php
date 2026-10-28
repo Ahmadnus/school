@@ -12,3 +12,6 @@ Artisan::command('inspire', function () {
 // الساعة السابعة صباحاً بتوقيت المدرسة، لا منتصف الليل: تنبيهٌ يوقظ أباً
 // نائماً يُغلَق إشعاره لا يُقرأ.
 Schedule::command('fees:notify-due')->dailyAt('07:00');
+
+// نسخة احتياطية يومية للبيانات الحقيقية — الثانية فجراً حين يخفّ الحمل.
+Schedule::command('db:backup')->dailyAt('02:00')->withoutOverlapping();

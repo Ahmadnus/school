@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Audited;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /** Internal staff note about a student — never shown to guardians. */
 class StudentNote extends Model
 {
-    use HasFactory;
+    use Audited, HasFactory;
 
     protected $fillable = ['student_id', 'author_id', 'body'];
 

@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Audited;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class GradeScore extends Model
 {
-    use HasFactory;
+    use Audited, HasFactory;
 
     protected $table = 'grades_scores';
 

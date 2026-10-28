@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Casts\MoneyCast;
 use App\Enums\FeePlanStatus;
 use App\Enums\PaymentState;
+use App\Models\Concerns\Audited;
 use App\Support\Money;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,7 +24,7 @@ use Illuminate\Support\Carbon;
  */
 class FeePlan extends Model
 {
-    use HasFactory;
+    use Audited, HasFactory;
 
     /** SQL للمدفوع: يستثني الملغى، ويُستعمل في الفلاتر والتقارير. */
     public const PAID_SQL = '(select coalesce(sum(amount_minor), 0) from fee_payments'

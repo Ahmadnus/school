@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Casts\DateOnly;
 use App\Casts\MoneyCast;
 use App\Enums\PaymentMethod;
+use App\Models\Concerns\Audited;
 use App\Support\Money;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  */
 class FeePayment extends Model
 {
-    use HasFactory;
+    use Audited, HasFactory;
 
     protected $fillable = [
         'school_id',

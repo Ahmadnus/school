@@ -3,13 +3,14 @@
 namespace App\Models;
 
 use App\Enums\GuardianRelation;
+use App\Models\Concerns\Audited;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class StudentGuardian extends Model
 {
-    use HasFactory;
+    use Audited, HasFactory;
 
     protected $table = 'student_guardians';
 

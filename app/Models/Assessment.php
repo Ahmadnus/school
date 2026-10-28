@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Casts\DateOnly;
+use App\Models\Concerns\Audited;
+use App\Services\SubjectGrade;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Assessment extends Model
 {
-    use HasFactory;
+    use Audited, HasFactory;
 
     protected $fillable = [
         'subject_id',
@@ -42,7 +44,7 @@ class Assessment extends Model
 
     /**
      * وزنٌ فارغ صفرٌ: «بلا وزنٍ خاصّ، فوزن النوع» — وهو ما يعنيه الصفر عند
-     * {@see \App\Services\SubjectGrade}. العمود لا يقبل `null`، وكان تقييمٌ
+     * {@see SubjectGrade}. العمود لا يقبل `null`، وكان تقييمٌ
      * حُفظ بلا وزن يُرفض بخطأ خادم.
      */
     protected function weightPercent(): Attribute

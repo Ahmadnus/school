@@ -292,6 +292,9 @@ return [
 This is to let you know that *:name* was marked absent on :date (:section).
 
 If there is an excuse, you can submit it from the school app.",
+        'tasmi' => '🎓 *:school*
+
+*:name* scored *:score* out of :max in :subject recitation on :date.',
     ],
     'supervisor_scope' => [
         'added' => 'Supervision scope added.',

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Casts\DateOnly;
 use App\Casts\MoneyCast;
 use App\Enums\InstallmentState;
+use App\Models\Concerns\Audited;
 use App\Support\Money;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,7 +15,7 @@ use Illuminate\Support\Carbon;
 
 class FeePlanInstallment extends Model
 {
-    use HasFactory;
+    use Audited, HasFactory;
 
     protected $fillable = ['fee_plan_id', 'sort_order', 'due_date', 'amount_minor', 'notes'];
 

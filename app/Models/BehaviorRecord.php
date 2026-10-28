@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Casts\DateOnly;
 use App\Enums\BehaviorStatus;
 use App\Enums\BehaviorType;
+use App\Models\Concerns\Audited;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BehaviorRecord extends Model
 {
-    use HasFactory;
+    use Audited, HasFactory;
 
     protected $fillable = [
         'student_id',

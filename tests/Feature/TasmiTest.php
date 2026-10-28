@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\NotificationApp;
 use App\Enums\UserRole;
+use App\Jobs\SendWhatsAppNotice;
 use App\Models\AcademicYear;
 use App\Models\Assessment;
 use App\Models\AssessmentType;
@@ -24,6 +25,7 @@ use App\Models\User;
 use App\Services\SubjectGrade;
 use App\Services\TasmiSession;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -490,6 +492,38 @@ class TasmiTest extends TestCase
         $this->assertStringContainsString('8.5', $notification->body);
         $this->assertStringContainsString('10', $notification->body);
         $this->assertSame($this->students['A']->id, $notification->ref_id);
+    }
+
+    /** واتساب مغلق افتراضياً، ويُفتح لشعبةٍ واحدة للتجربة فلا يخرج لغيرها. */
+    public function test_whatsapp_goes_only_to_the_enabled_sections(): void
+    {
+        Queue::fake([SendWhatsAppNotice::class]);
+        config()->set('services.whatsapp.url', 'http://waha.test');
+        config()->set('services.whatsapp.key', 'secret');
+        config()->set('services.whatsapp.only_to', []);
+        Sanctum::actingAs($this->teacher);
+
+        $entries = [['student_id' => $this->students['A']->id, 'score' => 8.5]];
+
+        // مغلق افتراضياً.
+        $this->postJson('/api/tasmi', $this->payload($entries))->assertOk();
+        Queue::assertNothingPushed();
+
+        // مفتوح لشعبة أخرى: لا شيء لهذه.
+        config()->set('services.whatsapp.tasmi', true);
+        config()->set('services.whatsapp.tasmi_sections', [(string) $this->otherSection->id]);
+        $this->postJson('/api/tasmi', $this->payload([['student_id' => $this->students['A']->id, 'score' => 9]]))->assertOk();
+        Queue::assertNothingPushed();
+
+        // مفتوح لهذه الشعبة: رسالة واحدة، ولا تتكرر بلا تغيير في الدرجة.
+        config()->set('services.whatsapp.tasmi_sections', [(string) $this->section->id]);
+        $this->postJson('/api/tasmi', $this->payload([['student_id' => $this->students['A']->id, 'score' => 7]]))->assertOk();
+        $this->postJson('/api/tasmi', $this->payload([['student_id' => $this->students['A']->id, 'score' => 7]]))->assertOk();
+        Queue::assertPushed(SendWhatsAppNotice::class, 1);
+        Queue::assertPushed(
+            SendWhatsAppNotice::class,
+            fn (SendWhatsAppNotice $job) => str_contains($job->text, 'قرآن') && str_contains($job->text, '7'),
+        );
     }
 
     /** ولا يرى وليُّ أمرٍ درجةَ طالبٍ ليس ابنه. */

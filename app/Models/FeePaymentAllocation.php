@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Casts\MoneyCast;
+use App\Models\Concerns\Audited;
 use App\Support\Money;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class FeePaymentAllocation extends Model
 {
-    use HasFactory;
+    use Audited, HasFactory;
 
     protected $fillable = ['fee_payment_id', 'fee_plan_installment_id', 'amount_minor'];
 

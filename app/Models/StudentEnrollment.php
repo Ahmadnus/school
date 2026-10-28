@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Casts\DateOnly;
 use App\Enums\EnrollmentScope;
 use App\Enums\EnrollmentStatus;
+use App\Models\Concerns\Audited;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class StudentEnrollment extends Model
 {
-    use HasFactory;
+    use Audited, HasFactory;
 
     protected $fillable = [
         'student_id',

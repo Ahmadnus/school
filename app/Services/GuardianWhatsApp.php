@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\NotificationApp;
 use App\Jobs\SendWhatsAppNotice;
+use App\Models\Assessment;
 use App\Models\Guardian;
 use App\Models\SchoolNotificationSetting;
 use App\Models\Student;
@@ -41,7 +42,7 @@ class GuardianWhatsApp
             return;
         }
 
-        if (! self::schoolAllows($student->school_id) || ! self::userAllows($guardian->user_id)) {
+        if (! self::schoolAllows($student->school_id, self::KEY) || ! self::userAllows($guardian->user_id, self::KEY)) {
             return;
         }
 
@@ -55,6 +56,52 @@ class GuardianWhatsApp
             'name' => $student->full_name,
             'date' => $date,
             'section' => $sectionLabel,
+            'school' => $student->school?->name ?? '',
+        ], config('app.locale'));
+
+        SendWhatsAppNotice::dispatch($guardian->phone, $countryCode, $text)
+            ->delay(self::nextSlot());
+    }
+
+    /**
+     * **درجة التسميع على واتساب** — لوليّ الأمر وحده عن ابنه هو.
+     *
+     * مغلقة حتى `WHATSAPP_TASMI=true`، وإن ضُبط `WHATSAPP_TASMI_SECTIONS`
+     * (أرقام شعب) فلا تخرج إلا لطلاب تلك الشعب: للتجربة على شعبة واحدة
+     * والبيانات الباقية حقيقية. ويحترم مفتاح `tasmi_recorded` عند المدرسة
+     * ووليّ الأمر. والرسالة تتكرّر فقط إن تغيّرت الدرجة نفسها.
+     */
+    public static function tasmi(Guardian $guardian, Student $student, Assessment $assessment, string $score, string $max, string $date): void
+    {
+        if (! config('services.whatsapp.tasmi') || ! WhatsAppSender::isConfigured() || blank($guardian->phone)) {
+            return;
+        }
+
+        $sections = config('services.whatsapp.tasmi_sections', []);
+        if ($sections !== [] && ! in_array((string) $assessment->section_id, $sections, true)) {
+            return;
+        }
+
+        $countryCode = $guardian->school?->phone_country_code ?? $student->school?->phone_country_code ?? '963';
+
+        if (! self::inTrialList($guardian->phone, $countryCode)) {
+            return;
+        }
+
+        if (! self::schoolAllows($student->school_id, 'tasmi_recorded') || ! self::userAllows($guardian->user_id, 'tasmi_recorded')) {
+            return;
+        }
+
+        if (! Cache::add("wa-tasmi:{$guardian->id}:{$student->id}:{$assessment->id}:{$score}", true, now()->addDays(2))) {
+            return;
+        }
+
+        $text = __('messages.whatsapp.tasmi', [
+            'name' => $student->first_name,
+            'score' => $score,
+            'max' => $max,
+            'subject' => $assessment->subject?->name ?? '',
+            'date' => $date,
             'school' => $student->school?->name ?? '',
         ], config('app.locale'));
 
@@ -95,18 +142,18 @@ class GuardianWhatsApp
         return false;
     }
 
-    private static function schoolAllows(int $schoolId): bool
+    private static function schoolAllows(int $schoolId, string $key): bool
     {
         $setting = SchoolNotificationSetting::query()
             ->ofSchool($schoolId)
             ->where('app', NotificationApp::Guardian)
-            ->where('key', self::KEY)
+            ->where('key', $key)
             ->first();
 
         return $setting?->is_enabled ?? true;
     }
 
-    private static function userAllows(?int $userId): bool
+    private static function userAllows(?int $userId, string $key): bool
     {
         if ($userId === null) {
             return true;
@@ -114,7 +161,7 @@ class GuardianWhatsApp
 
         return UserNotificationSetting::query()
             ->where('user_id', $userId)
-            ->where('key', self::KEY)
+            ->where('key', $key)
             ->first()?->is_enabled ?? true;
     }
 }

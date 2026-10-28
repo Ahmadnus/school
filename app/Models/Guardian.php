@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Status;
+use App\Models\Concerns\Audited;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Guardian extends Model
 {
-    use HasFactory;
+    use Audited, HasFactory;
 
     protected $fillable = ['school_id', 'user_id', 'name', 'phone', 'email', 'status'];
 
